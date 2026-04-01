@@ -1,6 +1,6 @@
 declare const process: { env: Record<string, string | undefined> };
 
-import { AuthResponse, Booking, BookingStatus, Category, ChatRoom, MeResponse, Review, SavedWorker, WorkerCard } from '../types';
+import { AiAssistantResponse, AiJobImprovement, AiQuoteSuggestion, AuthResponse, Booking, BookingStatus, Category, ChatRoom, MeResponse, Review, SavedWorker, WorkerCard } from '../types';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8080').replace(/\/$/, '');
 
@@ -45,6 +45,14 @@ export const api = {
   chatRoom: (token: string, bookingId: string) => request<ChatRoom>(`/api/chat/bookings/${bookingId}`, {}, token),
   sendMessage: (token: string, bookingId: string, message: string) =>
     request(`/api/chat/bookings/${bookingId}/messages`, { method: 'POST', body: JSON.stringify({ message }) }, token),
+  improveJobDraft: (token: string, payload: { categoryCode: string; title: string; description: string; address?: string; budget?: number; expectedHours?: number }) =>
+    request<AiJobImprovement>('/api/ai/jobs/improve', { method: 'POST', body: JSON.stringify(payload) }, token),
+  suggestJobQuote: (token: string, payload: { categoryCode: string; title: string; description: string; expectedHours: number }) =>
+    request<AiQuoteSuggestion>('/api/ai/jobs/quote', { method: 'POST', body: JSON.stringify(payload) }, token),
+  askBookingAssistant: (token: string, bookingId: string, question: string) =>
+    request<AiAssistantResponse>(`/api/ai/bookings/${bookingId}/assistant`, { method: 'POST', body: JSON.stringify({ question }) }, token),
+  askSupportAssistant: (token: string, question: string) =>
+    request<AiAssistantResponse>('/api/ai/support', { method: 'POST', body: JSON.stringify({ question }) }, token),
   createReview: (token: string, bookingId: string, rating: number, comment: string) =>
     request<Review>(`/api/reviews/bookings/${bookingId}`, { method: 'POST', body: JSON.stringify({ rating, comment }) }, token),
   reviewsByWorker: (workerId: string) => request<Review[]>(`/api/reviews/workers/${workerId}`),

@@ -132,6 +132,23 @@ export interface Review {
   createdAt: string;
 }
 
+export interface AiJobImprovement {
+  title: string;
+  description: string;
+  checklist: string[];
+  aiEnhanced: boolean;
+}
 
+export interface AiQuoteSuggestion {
+  suggestedBudget: number;
+  lowEstimate: number;
+  highEstimate: number;
+  reasoning: string;
+  aiEnhanced: boolean;
+}
 
-
+export interface AiAssistantResponse {
+  answer: string;
+  quickTips: string[];
+  aiEnhanced: boolean;
+}

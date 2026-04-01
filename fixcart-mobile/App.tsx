@@ -509,11 +509,17 @@ function ExistingReviewCard({ review, language, t }: { review: Review; language:
 function ChatPanel({ token, bookingId, t, language }: { token: string; bookingId: string; t: (key: TranslationKey) => string; language: LanguageCode }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
+  const [assistantReply, setAssistantReply] = useState('');
   const roomQuery = useQuery({ queryKey: ['chat', bookingId], queryFn: () => api.chatRoom(token, bookingId), refetchInterval: REFRESH_INTERVAL_MS });
   const sendMutation = useMutation({
     mutationFn: async () => api.sendMessage(token, bookingId, message),
     onSuccess: async () => { setMessage(''); await queryClient.invalidateQueries({ queryKey: ['chat', bookingId] }); },
     onError: (error: Error) => Alert.alert(t('messageFailed'), error.message),
+  });
+  const assistantMutation = useMutation({
+    mutationFn: async () => api.askBookingAssistant(token, bookingId, message),
+    onSuccess: (response) => { setAssistantReply(response.answer || t('noAiReply')); },
+    onError: (error: Error) => Alert.alert(t('askAi'), error.message),
   });
   if (roomQuery.isLoading) return <ActivityIndicator color={THEME.teal} />;
   if (roomQuery.isError) return <Text style={styles.errorText}>{t('chatUnavailable')}</Text>;
@@ -529,7 +535,29 @@ function ChatPanel({ token, bookingId, t, language }: { token: string; bookingId
         )) : <SectionHint>{t('noMessagesYet')}</SectionHint>}
       </View>
       <TextInput style={[styles.input, styles.chatInput]} value={message} onChangeText={setMessage} placeholder={t('message')} placeholderTextColor={THEME.muted} multiline />
-      <ActionButton title={sendMutation.isPending ? t('sending') : t('send')} onPress={() => sendMutation.mutate()} disabled={!message.trim() || sendMutation.isPending} />
+      <View style={styles.actionRow}>
+        <ActionButton title={sendMutation.isPending ? t('sending') : t('send')} onPress={() => sendMutation.mutate()} disabled={!message.trim() || sendMutation.isPending} />
+        <ActionButton title={assistantMutation.isPending ? t('aiWorking') : t('askAi')} onPress={() => assistantMutation.mutate()} disabled={!message.trim() || assistantMutation.isPending} kind="secondary" />
+      </View>
+      {assistantReply ? <View style={styles.assistantAnswerCard}><Text style={styles.subTitle}>{t('aiReply')}</Text><Text style={styles.cardBody}>{assistantReply}</Text></View> : null}
+    </View>
+  );
+}
+
+function SupportAssistantCard({ token, t }: { token: string; t: (key: TranslationKey) => string }) {
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const supportMutation = useMutation({
+    mutationFn: async () => api.askSupportAssistant(token, question),
+    onSuccess: (response) => { setAnswer(response.answer || t('noAiReply')); },
+    onError: (error: Error) => Alert.alert(t('supportAssistant'), error.message),
+  });
+
+  return (
+    <View style={styles.supportCard}>
+      <TextInput style={[styles.input, styles.textArea]} value={question} onChangeText={setQuestion} placeholder={t('supportPlaceholder')} placeholderTextColor={THEME.muted} multiline />
+      <ActionButton title={supportMutation.isPending ? t('aiWorking') : t('askAi')} onPress={() => supportMutation.mutate()} disabled={!question.trim() || supportMutation.isPending} kind="secondary" />
+      {answer ? <View style={styles.assistantAnswerCard}><Text style={styles.subTitle}>{t('aiReply')}</Text><Text style={styles.cardBody}>{answer}</Text></View> : null}
     </View>
   );
 }
@@ -599,6 +627,8 @@ function CustomerDashboard() {
   const reviewsQuery = useQuery({ queryKey: ['worker-reviews', selectedBooking?.workerId], queryFn: () => api.reviewsByWorker(selectedBooking!.workerId!), enabled: !!selectedBooking?.workerId, refetchInterval: REFRESH_INTERVAL_MS });
   const existingReview = useMemo(() => !selectedBooking || !reviewsQuery.data ? null : reviewsQuery.data.find((review) => review.bookingId === selectedBooking.bookingId) ?? null, [reviewsQuery.data, selectedBooking]);
   const reviewMutation = useMutation({ mutationFn: (bookingId: string) => api.createReview(token, bookingId, Number(reviewRating), reviewComment), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['customer-bookings'] }); await queryClient.invalidateQueries({ queryKey: ['worker-reviews', selectedBooking?.workerId] }); Alert.alert(t('reviewSubmitted'), t('reviewSubmittedBody')); }, onError: (error: Error) => Alert.alert(t('reviewFailed'), error.message) });
+  const improveJobMutation = useMutation({ mutationFn: () => api.improveJobDraft(token, { categoryCode: selectedCategory, title, description, address, budget: Number(budget) || undefined, expectedHours: Number(duration) || undefined }), onSuccess: (response) => { setTitle(response.title); setDescription(response.description); if (response.checklist?.length) { Alert.alert(t('aiChecklist'), response.checklist.join('\n')); } }, onError: (error: Error) => Alert.alert(t('improveWithAi'), error.message) });
+  const smartQuoteMutation = useMutation({ mutationFn: () => api.suggestJobQuote(token, { categoryCode: selectedCategory, title, description, expectedHours: Number(duration) || 1 }), onSuccess: (response) => { setBudget(String(response.suggestedBudget)); Alert.alert(t('smartQuote'), `${response.reasoning}` + '\n' + `Range: ${response.lowEstimate} - ${response.highEstimate}`); }, onError: (error: Error) => Alert.alert(t('suggestBudget'), error.message) });
 
   const customerRealtimeStatus = useStompSubscriptions(['/topic/bookings/open', ...(selectedBooking ? [`/topic/bookings/${selectedBooking.bookingId}`, `/topic/chat/${selectedBooking.bookingId}`] : [])], {
     '/topic/bookings/open': async () => { await queryClient.invalidateQueries({ queryKey: ['workers', selectedCategory, budget] }); await queryClient.invalidateQueries({ queryKey: ['customer-bookings'] }); },
@@ -633,11 +663,12 @@ function CustomerDashboard() {
         <AnimatedSection delay={160}><Section title={t('savedWorkersTitle')}>{savedWorkersVisible.length ? savedWorkersVisible.map((worker) => <WorkerCardView key={worker.workerId} worker={worker} language={language} currency={currency} t={t} isSaved onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} />) : <SectionHint>{t('savedWorkersHint')}</SectionHint>}</Section></AnimatedSection>
         <AnimatedSection delay={190}><Section title={t('nearbyWorkersMap')}><SectionHint>{t('nearbyWorkersMapHint')}</SectionHint><QueryFeedback loading={workersQuery.isLoading} error={workersQuery.isError} emptyMessage={t('nearbyWorkersListHint')} /><NearbyWorkersMap workers={workers} selectedWorkerId={selectedWorkerId} onSelectWorker={setSelectedWorkerId} savedWorkerIds={savedWorkerIds} onToggleSaved={handleToggleSavedWorker} language={language} currency={currency} t={t} /></Section></AnimatedSection>
         <AnimatedSection delay={220}><Section title={t('nearbyWorkers')}><SectionHint>{t('nearbyWorkersListHint')}</SectionHint><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRail}>{workers.map((worker) => <TouchableOpacity key={worker.workerId} style={[styles.horizontalCard, selectedWorkerId === worker.workerId && styles.horizontalCardSelected]} onPress={() => setSelectedWorkerId(worker.workerId)} activeOpacity={0.9}><WorkerCardView worker={worker} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(worker.workerId)} onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} /></TouchableOpacity>)}</ScrollView></Section></AnimatedSection>
-        <AnimatedSection delay={250}><Section title={t('createServiceRequest')}><Text style={styles.label}>{t('category')}</Text><CategoryGrid categories={categories} selectedCode={selectedCategory} onSelect={setSelectedCategory} language={language} /><TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('jobTitle')} placeholderTextColor={THEME.muted} returnKeyType="next" /><TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder={t('describeIssue')} placeholderTextColor={THEME.muted} multiline /><View style={styles.compactFieldRow}><TextInput style={[styles.input, styles.compactField]} value={budget} onChangeText={setBudget} placeholder={`${t('budget')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /><TextInput style={[styles.input, styles.compactField]} value={duration} onChangeText={setDuration} placeholder={t('expectedHours')} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /></View><TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder={t('address')} placeholderTextColor={THEME.muted} /><ActionButton title={createBookingMutation.isPending ? t('broadcasting') : t('broadcastRequest')} onPress={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending} /></Section></AnimatedSection>
+        <AnimatedSection delay={250}><Section title={t('createServiceRequest')}><Text style={styles.label}>{t('category')}</Text><CategoryGrid categories={categories} selectedCode={selectedCategory} onSelect={setSelectedCategory} language={language} /><TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('jobTitle')} placeholderTextColor={THEME.muted} returnKeyType="next" /><TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder={t('describeIssue')} placeholderTextColor={THEME.muted} multiline /><View style={styles.actionRow}><ActionButton title={improveJobMutation.isPending ? t('aiWorking') : t('improveWithAi')} onPress={() => improveJobMutation.mutate()} disabled={improveJobMutation.isPending || !title.trim() || !description.trim()} kind="secondary" /><ActionButton title={smartQuoteMutation.isPending ? t('aiWorking') : t('suggestBudget')} onPress={() => smartQuoteMutation.mutate()} disabled={smartQuoteMutation.isPending || !title.trim() || !description.trim()} kind="secondary" /></View><View style={styles.compactFieldRow}><TextInput style={[styles.input, styles.compactField]} value={budget} onChangeText={setBudget} placeholder={`${t('budget')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /><TextInput style={[styles.input, styles.compactField]} value={duration} onChangeText={setDuration} placeholder={t('expectedHours')} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /></View><TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder={t('address')} placeholderTextColor={THEME.muted} /><ActionButton title={createBookingMutation.isPending ? t('broadcasting') : t('broadcastRequest')} onPress={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending} /></Section></AnimatedSection>
         <AnimatedSection delay={280}><Section title={t('myBookings')}>{bookings.length ? bookings.map((booking) => <BookingCard key={booking.bookingId} booking={booking} language={language} currency={currency} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} onChat={booking.workerId ? () => setSelectedBookingId(booking.bookingId) : undefined} onReview={booking.status === 'COMPLETED' ? () => setSelectedBookingId(booking.bookingId) : undefined} onRebook={booking.status === 'COMPLETED' ? () => handleRebook(booking) : undefined} />) : <SectionHint>{t('noBookingsYet')}</SectionHint>}</Section></AnimatedSection>
         {selectedBooking ? <AnimatedSection delay={310}><Section title={t('selectedBookingDetails')}><Text style={styles.cardTitle}>{selectedBooking.title}</Text><Text style={styles.cardMeta}>{formatStatus(selectedBooking.status, language)}</Text><Text style={styles.cardBody}>{selectedBooking.description}</Text><Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(selectedBooking.preferredTime, language)}</Text><Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(selectedBooking.budget, language, currency, t)}</Text>{selectedBooking.workerName ? <Text style={styles.cardMeta}>{t('workerLabel')}: {selectedBooking.workerName}</Text> : null}<SectionHint>{t('customerActionsHint')}</SectionHint><BookingActions actions={selectedActions} language={language} t={t} onStatus={(status) => updateStatusMutation.mutate({ bookingId: selectedBooking.bookingId, status })} /><Text style={styles.subTitle}>{t('statusHistory')}</Text><StatusTimeline booking={selectedBooking} language={language} /></Section></AnimatedSection> : null}
         {selectedBooking?.workerId ? <AnimatedSection delay={340}><Section title={`${t('chat')}: ${selectedBooking.title}`}><ChatPanel token={token} bookingId={selectedBooking.bookingId} t={t} language={language} /></Section></AnimatedSection> : null}
         {selectedBooking?.status === 'COMPLETED' && existingReview ? <AnimatedSection delay={370}><Section title={t('yourSubmittedReview')}><ExistingReviewCard review={existingReview} language={language} t={t} /></Section></AnimatedSection> : null}
+        <AnimatedSection delay={395}><Section title={t('supportAssistant')}><SupportAssistantCard token={token} t={t} /></Section></AnimatedSection>
         {selectedBooking?.status === 'COMPLETED' && !existingReview ? <AnimatedSection delay={400}><Section title={t('completeWithReview')}><Text style={styles.label}>{t('selectRating')}</Text><RatingPicker value={reviewRating} onChange={setReviewRating} /><TextInput style={[styles.input, styles.textArea]} value={reviewComment} onChangeText={setReviewComment} placeholder={t('review')} placeholderTextColor={THEME.muted} multiline /><ActionButton title={reviewMutation.isPending ? t('sending') : t('submitReview')} onPress={() => reviewMutation.mutate(selectedBooking.bookingId)} disabled={reviewMutation.isPending} /></Section></AnimatedSection> : null}
     </ScreenFrame>
   );
@@ -833,10 +864,15 @@ const styles = StyleSheet.create({
   chatBubble: { backgroundColor: '#FFF4E6', borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: THEME.border },
   chatSender: { color: THEME.ink, fontWeight: '800', marginBottom: 2 },
   chatInput: { minHeight: 58, maxHeight: 120 },
+  supportCard: { gap: 10 },
+  assistantAnswerCard: { backgroundColor: THEME.tealSoft, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: THEME.tealSoft },
   routeCard: { gap: 10 },
   routeFallbackCard: { borderRadius: 18, padding: 14, backgroundColor: THEME.white, borderWidth: 1, borderColor: THEME.border, gap: 4 },
   routeMapWrap: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: THEME.border, backgroundColor: THEME.white },
   routeMap: { width: '100%', height: 210 },
   errorText: { color: THEME.danger },
 });
+
+
+
 

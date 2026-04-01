@@ -2,6 +2,7 @@ package com.fixcart.platform.booking;
 
 import com.fixcart.platform.auth.User;
 import com.fixcart.platform.auth.UserRepository;
+import com.fixcart.platform.ai.AiAssistantService;
 import com.fixcart.platform.auth.UserRole;
 import com.fixcart.platform.category.CategoryCodeResolver;
 import com.fixcart.platform.category.ServiceCategory;
@@ -33,6 +34,7 @@ public class BookingService {
     private final CategoryCodeResolver categoryCodeResolver;
     private final WorkerProfileRepository workerProfileRepository;
     private final RecommendationService recommendationService;
+    private final AiAssistantService aiAssistantService;
     private final WorkerService workerService;
     private final ChatService chatService;
     private final NotificationService notificationService;
@@ -46,6 +48,7 @@ public class BookingService {
             CategoryCodeResolver categoryCodeResolver,
             WorkerProfileRepository workerProfileRepository,
             RecommendationService recommendationService,
+            AiAssistantService aiAssistantService,
             WorkerService workerService,
             ChatService chatService,
             NotificationService notificationService,
@@ -58,6 +61,7 @@ public class BookingService {
         this.categoryCodeResolver = categoryCodeResolver;
         this.workerProfileRepository = workerProfileRepository;
         this.recommendationService = recommendationService;
+        this.aiAssistantService = aiAssistantService;
         this.workerService = workerService;
         this.chatService = chatService;
         this.notificationService = notificationService;
@@ -96,7 +100,7 @@ public class BookingService {
         List<RecommendationService.WorkerRecommendation> ranked = recommendationService.rankWorkers(saved, candidates);
         if (!ranked.isEmpty()) {
             RecommendationService.WorkerRecommendation top = ranked.get(0);
-            saved.setMatchExplanation(top.explanation());
+            saved.setMatchExplanation(aiAssistantService.refineMatchExplanation(saved, top.worker(), top.explanation()));
         } else {
             saved.setMatchExplanation("No ranked worker yet. The request is still open to matching providers.");
         }
@@ -258,3 +262,4 @@ public class BookingService {
         );
     }
 }
+
