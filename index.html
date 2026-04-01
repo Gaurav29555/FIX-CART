@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FixCart - Home Services Made Simple</title>
+    <meta name="description" content="Book trusted professionals for all your home service needs. From plumbing to electrical, get quality service with transparent pricing.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <svg class="brand-icon" viewBox="0 0 40 40" fill="none">
+                    <path d="M20 5C11.7 5 5 11.7 5 20s6.7 15 15 15 15-6.7 15-15S28.3 5 20 5zm-5 21.5l-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6z" fill="currentColor"/>
+                </svg>
+                <span class="brand-text">FixCart</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#services" class="nav-link">Services</a>
+                <a href="#how-it-works" class="nav-link">How It Works</a>
+                <a href="#about" class="nav-link">About</a>
+                <a href="#contact" class="nav-link">Contact</a>
+            </div>
+            <div class="nav-actions">
+                <button class="btn btn-outline" id="loginBtn">Sign In</button>
+                <button class="btn btn-primary" id="registerBtn">Get Started</button>
+            </div>
+            <button class="nav-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <div class="hero-background">
+                <div class="blob blob-1"></div>
+                <div class="blob blob-2"></div>
+                <div class="blob blob-3"></div>
+            </div>
+            <div class="container">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        Home Services Made
+                        <span class="gradient-text">Effortless</span>
+                    </h1>
+                    <p class="hero-description">
+                        Book trusted professionals for all your home needs. From plumbing emergencies to routine maintenance, get quality service with transparent pricing and guaranteed satisfaction.
+                    </p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary btn-large" id="startBooking">
+                            Book a Service
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                        <button class="btn btn-outline btn-large" id="browseServices">
+                            Browse Services
+                        </button>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <span class="stat-number">50k+</span>
+                            <span class="stat-label">Happy Customers</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">500+</span>
+                            <span class="stat-label">Verified Professionals</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">4.9/5</span>
+                            <span class="stat-label">Average Rating</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="phone-mockup">
+                        <div class="phone-screen">
+                            <div class="app-header">
+                                <div class="app-title">FixCart</div>
+                                <div class="app-subtitle">Your location</div>
+                            </div>
+                            <div class="service-cards">
+                                <div class="service-card">
+                                    <div class="service-icon">🔧</div>
+                                    <div class="service-name">Plumbing</div>
+                                </div>
+                                <div class="service-card">
+                                    <div class="service-icon">💡</div>
+                                    <div class="service-name">Electrical</div>
+                                </div>
+                                <div class="service-card">
+                                    <div class="service-icon">🎨</div>
+                                    <div class="service-name">Painting</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="services" id="services">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">Popular Services</h2>
+                    <p class="section-description">From quick fixes to major projects, we've got you covered</p>
+                </div>
+                <div class="services-grid">
+                    <div class="service-item">
+                        <div class="service-icon-wrapper">
+                            <div class="service-icon">🔧</div>
+                        </div>
+                        <h3 class="service-title">Plumbing</h3>
+                        <p class="service-description">Leaks, installations, repairs, and maintenance by certified plumbers.</p>
+                        <div class="service-footer">
+                            <span class="service-price">From $49</span>
+                            <button class="btn btn-primary btn-small">Book Now</button>
+                        </div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-icon-wrapper">
+                            <div class="service-icon">💡</div>
+                        </div>
+                        <h3 class="service-title">Electrical</h3>
+                        <p class="service-description">Wiring, lighting, outlets, and electrical safety inspections.</p>
+                        <div class="service-footer">
+                            <span class="service-price">From $59</span>
+                            <button class="btn btn-primary btn-small">Book Now</button>
+                        </div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-icon-wrapper">
+                            <div class="service-icon">🎨</div>
+                        </div>
+                        <h3 class="service-title">Painting</h3>
+                        <p class="service-description">Interior and exterior painting with color consultation included.</p>
+                        <div class="service-footer">
+                            <span class="service-price">From $199</span>
+                            <button class="btn btn-primary btn-small">Book Now</button>
+                        </div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-icon-wrapper">
+                            <div class="service-icon">🏠</div>
+                        </div>
+                        <h3 class="service-title">Handyman</h3>
+                        <p class="service-description">Furniture assembly, mounting, repairs, and general maintenance.</p>
+                        <div class="service-footer">
+                            <span class="service-price">From $39</span>
+                            <button class="btn btn-primary btn-small">Book Now</button>
+                        </div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-icon-wrapper">
+                            <div class="service-icon">🌿</div>
+                        </div>
+                        <h3 class="service-title">Gardening</h3>
+                        <p class="service-description">Lawn care, landscaping, tree trimming, and garden maintenance.</p>
+                        <div class="service-footer">
+                            <span class="service-price">From $59</span>
+                            <button class="btn btn-primary btn-small">Book Now</button>
+                        </div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-icon-wrapper">
+                            <div class="service-icon">🧹</div>
+                        </div>
+                        <h3 class="service-title">Cleaning</h3>
+                        <p class="service-description">Deep cleaning, regular maintenance, and move-in/out services.</p>
+                        <div class="service-footer">
+                            <span class="service-price">From $79</span>
+                            <button class="btn btn-primary btn-small">Book Now</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="how-it-works" id="how-it-works">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">How It Works</h2>
+                    <p class="section-description">Get quality service in 3 simple steps</p>
+                </div>
+                <div class="steps-container">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h3 class="step-title">Describe Your Task</h3>
+                        <p class="step-description">Tell us what you need - be as detailed as possible for accurate quotes.</p>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h3 class="step-title">Choose Your Pro</h3>
+                        <p class="step-description">Compare profiles, reviews, and prices to find your perfect match.</p>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h3 class="step-title">Get It Done</h3>
+                        <p class="step-description">Schedule the service and pay securely only when satisfied.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="testimonials">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">What Our Customers Say</h2>
+                </div>
+                <div class="testimonials-grid">
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <div class="stars">★★★★★</div>
+                            <p class="testimonial-text">"The plumber arrived on time and fixed our leak quickly. Professional service at a fair price!"</p>
+                            <div class="testimonial-author">
+                                <div class="author-avatar">SM</div>
+                                <div class="author-info">
+                                    <div class="author-name">Sarah Mitchell</div>
+                                    <div class="author-service">Plumbing Service</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <div class="stars">★★★★★</div>
+                            <p class="testimonial-text">"Excellent experience! The electrician was knowledgeable and explained everything clearly."</p>
+                            <div class="testimonial-author">
+                                <div class="author-avatar">JD</div>
+                                <div class="author-info">
+                                    <div class="author-name">James Davis</div>
+                                    <div class="author-service">Electrical Work</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <div class="stars">★★★★★</div>
+                            <p class="testimonial-text">"My garden looks amazing! The landscaper transformed our backyard into a beautiful oasis."</p>
+                            <div class="testimonial-author">
+                                <div class="author-avatar">MR</div>
+                                <div class="author-info">
+                                    <div class="author-name">Maria Rodriguez</div>
+                                    <div class="author-service">Gardening</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta">
+            <div class="container">
+                <div class="cta-content">
+                    <h2 class="cta-title">Ready to Get Started?</h2>
+                    <p class="cta-description">Join thousands of satisfied customers who trust FixCart for their home service needs.</p>
+                    <div class="cta-actions">
+                        <button class="btn btn-primary btn-large">Book a Service</button>
+                        <button class="btn btn-outline btn-large">Become a Pro</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-brand">
+                        <svg class="brand-icon" viewBox="0 0 40 40" fill="none">
+                            <path d="M20 5C11.7 5 5 11.7 5 20s6.7 15 15 15 15-6.7 15-15S28.3 5 20 5zm-5 21.5l-3.5-3.5 1.4-1.4 2.1 2.1 4.6-4.6 1.4 1.4-6 6z" fill="currentColor"/>
+                        </svg>
+                        <span class="brand-text">FixCart</span>
+                    </div>
+                    <p class="footer-description">Making home services simple, reliable, and affordable for everyone.</p>
+                    <div class="social-links">
+                        <a href="#" class="social-link">📘</a>
+                        <a href="#" class="social-link">🐦</a>
+                        <a href="#" class="social-link">📷</a>
+                        <a href="#" class="social-link">💼</a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4 class="footer-title">Services</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">Plumbing</a></li>
+                        <li><a href="#" class="footer-link">Electrical</a></li>
+                        <li><a href="#" class="footer-link">Painting</a></li>
+                        <li><a href="#" class="footer-link">Handyman</a></li>
+                        <li><a href="#" class="footer-link">Gardening</a></li>
+                        <li><a href="#" class="footer-link">Cleaning</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4 class="footer-title">Company</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">About Us</a></li>
+                        <li><a href="#" class="footer-link">Careers</a></li>
+                        <li><a href="#" class="footer-link">Press</a></li>
+                        <li><a href="#" class="footer-link">Blog</a></li>
+                        <li><a href="#" class="footer-link">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4 class="footer-title">Support</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">Help Center</a></li>
+                        <li><a href="#" class="footer-link">Safety</a></li>
+                        <li><a href="#" class="footer-link">Terms</a></li>
+                        <li><a href="#" class="footer-link">Privacy</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-copyright">© 2024 FixCart. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal" id="authModal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">×</button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Sign In</button>
+                <button class="auth-tab" data-tab="register">Sign Up</button>
+            </div>
+            <div class="auth-form-container">
+                <form class="auth-form" id="loginForm">
+                    <h3 class="form-title">Welcome Back</h3>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+                    <a href="#" class="form-link">Forgot password?</a>
+                </form>
+                <form class="auth-form hidden" id="registerForm">
+                    <h3 class="form-title">Create Account</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">I am a</label>
+                        <select class="form-select" required>
+                            <option value="USER">Customer</option>
+                            <option value="WORKER">Service Provider</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

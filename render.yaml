@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: fixcart-backend
+    runtime: docker
+    rootDir: fixcart-backend
+    healthCheckPath: /actuator/health
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: APP_SEED_ENABLED
+        value: true
+      - key: JWT_SECRET
+        sync: false
+      - key: JDBC_DATABASE_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
