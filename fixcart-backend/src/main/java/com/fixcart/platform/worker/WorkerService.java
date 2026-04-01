@@ -3,6 +3,7 @@ package com.fixcart.platform.worker;
 import com.fixcart.platform.auth.User;
 import com.fixcart.platform.auth.UserRepository;
 import com.fixcart.platform.auth.UserRole;
+import com.fixcart.platform.category.CategoryCodeResolver;
 import com.fixcart.platform.category.ServiceCategory;
 import com.fixcart.platform.category.ServiceCategoryRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,6 +21,7 @@ public class WorkerService {
     private final WorkerProfileRepository workerProfileRepository;
     private final AvailabilitySlotRepository availabilitySlotRepository;
     private final ServiceCategoryRepository categoryRepository;
+    private final CategoryCodeResolver categoryCodeResolver;
     private final UserRepository userRepository;
     private final WorkerMapper workerMapper;
 
@@ -27,12 +29,14 @@ public class WorkerService {
             WorkerProfileRepository workerProfileRepository,
             AvailabilitySlotRepository availabilitySlotRepository,
             ServiceCategoryRepository categoryRepository,
+            CategoryCodeResolver categoryCodeResolver,
             UserRepository userRepository,
             WorkerMapper workerMapper
     ) {
         this.workerProfileRepository = workerProfileRepository;
         this.availabilitySlotRepository = availabilitySlotRepository;
         this.categoryRepository = categoryRepository;
+        this.categoryCodeResolver = categoryCodeResolver;
         this.userRepository = userRepository;
         this.workerMapper = workerMapper;
     }
@@ -53,8 +57,8 @@ public class WorkerService {
         profile.setLongitude(longitude);
         profile.setServiceRadiusKm(serviceRadiusKm == null ? 15.0 : serviceRadiusKm);
         profile.setAvailable(true);
-        if (categoryCode != null) {
-            ServiceCategory category = categoryRepository.findByCodeIgnoreCase(categoryCode).orElse(null);
+        if (categoryCode != null && !categoryCode.isBlank()) {
+            ServiceCategory category = categoryRepository.findByCodeIgnoreCase(categoryCodeResolver.normalize(categoryCode)).orElse(null);
             profile.setPrimaryCategory(category);
         }
         return workerProfileRepository.save(profile);
@@ -72,8 +76,7 @@ public class WorkerService {
                     fresh.setUser(user);
                     return fresh;
                 });
-        ServiceCategory category = categoryRepository.findByCodeIgnoreCase(request.primaryCategoryCode())
-                .orElseThrow(() -> new EntityNotFoundException("Service category not found"));
+        ServiceCategory category = categoryCodeResolver.requireCategory(request.primaryCategoryCode());
 
         profile.setPrimaryCategory(category);
         profile.setBio(request.bio());
@@ -113,9 +116,10 @@ public class WorkerService {
 
     @Transactional(readOnly = true)
     public List<WorkerDtos.WorkerCardResponse> discover(String categoryCode, Double latitude, Double longitude, Double maxBudget) {
+        String resolvedCategoryCode = categoryCode == null || categoryCode.isBlank() ? null : categoryCodeResolver.normalize(categoryCode);
         return workerProfileRepository.findByAvailableTrue().stream()
-                .filter(profile -> categoryCode == null
-                        || (profile.getPrimaryCategory() != null && profile.getPrimaryCategory().getCode().equalsIgnoreCase(categoryCode)))
+                .filter(profile -> resolvedCategoryCode == null
+                        || (profile.getPrimaryCategory() != null && profile.getPrimaryCategory().getCode().equalsIgnoreCase(resolvedCategoryCode)))
                 .filter(profile -> maxBudget == null || profile.getBasePrice() == null || profile.getBasePrice().doubleValue() <= maxBudget)
                 .map(profile -> toDiscoveryCandidate(profile, latitude, longitude, maxBudget))
                 .filter(candidate -> candidate.distanceKm() == null
@@ -181,4 +185,3 @@ public class WorkerService {
 
     private record DiscoveryCandidate(WorkerProfile profile, Double distanceKm, double score, String explanation) {}
 }
-

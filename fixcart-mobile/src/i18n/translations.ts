@@ -1,4 +1,4 @@
-﻿import type { BookingStatus } from '../types';
+import type { BookingStatus } from '../types';
 
 export type LanguageCode = 'en' | 'hi' | 'mr' | 'te' | 'ta' | 'gu';
 
@@ -23,6 +23,7 @@ export const LOCALE_MAP: Record<LanguageCode, string> = {
 const en = {
   appName: 'FixCart',
   tagline: 'Fast local services with trusted workers',
+  logoCaption: 'Comfortable local service booking',
   login: 'Login',
   register: 'Register',
   firstName: 'First name',
@@ -38,6 +39,8 @@ const en = {
   loginHeroTitle: 'Trusted local help, now in your language',
   loginHeroSubtitle: 'Find, compare, chat, and book reliable workers with a softer, clearer FixCart experience.',
   language: 'Language',
+  currency: 'Currency',
+  currencyHint: 'Choose how money values are displayed in the app.',
   themeComfort: 'Comfort-first design',
   customerDashboard: 'Customer Dashboard',
   workerDashboard: 'Worker Dashboard',
@@ -58,6 +61,8 @@ const en = {
   nearbyWorkersListHint: 'This list refreshes often so you can compare nearby affordable options.',
   createServiceRequest: 'Create Service Request',
   category: 'Category',
+  workerCategorySetup: 'Work categories',
+  workerCategoryHint: 'Choose one or more categories. Your first selection is used as the primary category for matching.',
   jobTitle: 'Job title',
   describeIssue: 'Describe the issue',
   budget: 'Budget',
@@ -143,6 +148,8 @@ const en = {
   reviewFailed: 'Review failed',
   chatUnavailable: 'Chat unavailable yet.',
   noNextAction: 'No next status action available right now.',
+  ratingLabel: 'Rating',
+  notAvailable: 'N/A',
   connected: 'connected',
   connecting: 'connecting',
   reconnecting: 'reconnecting',
@@ -152,11 +159,12 @@ const en = {
 
 export type TranslationKey = keyof typeof en;
 
-type TranslationTable = Record<TranslationKey, string>;
+type TranslationTable = Partial<Record<TranslationKey, string>>;
 
 const hi: TranslationTable = {
   appName: 'फिक्सकार्ट',
   tagline: 'भरोसेमंद कामगारों के साथ तेज़ स्थानीय सेवाएँ',
+  logoCaption: 'आरामदायक स्थानीय सेवा बुकिंग',
   login: 'लॉगिन',
   register: 'रजिस्टर',
   firstName: 'पहला नाम',
@@ -172,6 +180,8 @@ const hi: TranslationTable = {
   loginHeroTitle: 'आपकी भाषा में भरोसेमंद स्थानीय मदद',
   loginHeroSubtitle: 'मजदूर खोजें, तुलना करें, चैट करें और आसानी से बुक करें।',
   language: 'भाषा',
+  currency: 'मुद्रा',
+  currencyHint: 'ऐप में राशि किस मुद्रा में दिखाई जाए, यह चुनें।',
   themeComfort: 'आँखों को आराम देने वाला डिज़ाइन',
   customerDashboard: 'ग्राहक डैशबोर्ड',
   workerDashboard: 'कामगार डैशबोर्ड',
@@ -277,6 +287,8 @@ const hi: TranslationTable = {
   reviewFailed: 'रिव्यू भेजना असफल रहा',
   chatUnavailable: 'चैट अभी उपलब्ध नहीं है।',
   noNextAction: 'अभी अगली स्थिति क्रिया उपलब्ध नहीं है।',
+  ratingLabel: 'रेटिंग',
+  notAvailable: 'उपलब्ध नहीं',
   connected: 'कनेक्टेड',
   connecting: 'कनेक्ट हो रहा है',
   reconnecting: 'फिर से कनेक्ट हो रहा है',

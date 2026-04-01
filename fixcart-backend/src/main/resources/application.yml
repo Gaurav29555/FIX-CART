@@ -36,6 +36,11 @@ management:
         enabled: true
 
 app:
+  push:
+    provider: ${PUSH_PROVIDER:log}
+    expo:
+      endpoint: ${EXPO_PUSH_ENDPOINT:https://exp.host/--/api/v2/push/send}
+      access-token: ${EXPO_PUSH_ACCESS_TOKEN:}
   jwt:
     secret: ${JWT_SECRET:fixcart-secret-key-fixcart-secret-key-fixcart-secret-key-123456}
     access-expiration-seconds: ${JWT_ACCESS_EXPIRATION:3600}
@@ -53,3 +58,4 @@ app:
 logging:
   level:
     com.fixcart.platform: INFO
+

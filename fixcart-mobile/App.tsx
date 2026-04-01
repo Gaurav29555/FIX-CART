@@ -1,10 +1,12 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -15,17 +17,44 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { StatusBar } from 'expo-status-bar';
+import { initializeErrorReporting, withErrorBoundary } from './src/monitoring/errorReporter';
+import { configureNotifications, syncPushRegistration } from './src/notifications/syncPushRegistration';
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './src/api/client';
 import { LANGUAGE_OPTIONS, LOCALE_MAP, LanguageCode, TranslationKey, translations, statusLabels } from './src/i18n/translations';
 import { useStompSubscriptions } from './src/realtime/useStompSubscriptions';
-import { usePreferencesStore } from './src/store/preferences';
+import { CurrencyCode, usePreferencesStore } from './src/store/preferences';
 import { useSessionStore } from './src/store/session';
 import { Booking, BookingStatus, Category, Review, WorkerCard } from './src/types';
+
+initializeErrorReporting();
+configureNotifications();
 
 const queryClient = new QueryClient();
 const REFRESH_INTERVAL_MS = 5000;
 const DEFAULT_MAP_REGION = { latitude: 19.076, longitude: 72.8777, latitudeDelta: 0.08, longitudeDelta: 0.08 };
+const ENABLE_NATIVE_MAPS = process.env.EXPO_PUBLIC_ENABLE_NATIVE_MAPS === 'true';
+const KEYBOARD_BEHAVIOR = Platform.OS === 'ios' ? 'padding' : 'height';
+const KEYBOARD_VERTICAL_OFFSET = Platform.OS === 'ios' ? 0 : 20;
+const CATEGORY_FALLBACKS: Category[] = [
+  { id: 'plumbing', code: 'PLUMBING', name: 'Plumbing', icon: '🔧' },
+  { id: 'electrical', code: 'ELECTRICAL', name: 'Electrical', icon: '💡' },
+  { id: 'carpentry', code: 'CARPENTRY', name: 'Carpentry', icon: '🪵' },
+  { id: 'painting', code: 'PAINTING', name: 'Painting', icon: '🎨' },
+  { id: 'cleaning', code: 'CLEANING', name: 'Cleaning', icon: '🧼' },
+  { id: 'handyman', code: 'HANDYMAN', name: 'Handyman', icon: '🪚' },
+  { id: 'gardening', code: 'GARDENING', name: 'Gardening', icon: '🌿' },
+];
+const CATEGORY_ORDER = CATEGORY_FALLBACKS.map((category) => category.code);
+const CURRENCY_OPTIONS: Array<{ code: CurrencyCode; label: string }> = [
+  { code: 'INR', label: 'INR' },
+  { code: 'USD', label: 'USD' },
+  { code: 'EUR', label: 'EUR' },
+  { code: 'GBP', label: 'GBP' },
+  { code: 'AED', label: 'AED' },
+  { code: 'CAD', label: 'CAD' },
+  { code: 'AUD', label: 'AUD' },
+];
 const THEME = {
   bg: '#F4EFE6',
   bgSoft: '#EEE5D7',
@@ -44,24 +73,35 @@ const THEME = {
 const WORKER_STATUS_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = { ACCEPTED: ['ON_THE_WAY'], CONFIRMED: ['ON_THE_WAY'], ON_THE_WAY: ['ARRIVED'], ARRIVED: ['IN_PROGRESS'] };
 const CUSTOMER_STATUS_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = { ACCEPTED: ['CONFIRMED'], ARRIVED: ['COMPLETED'], IN_PROGRESS: ['COMPLETED'] };
 const CATEGORY_LABELS: Record<string, Record<LanguageCode, string>> = {
-  PLUMBING: { en: 'Plumbing', hi: 'प्लंबिंग', mr: 'प्लंबिंग', te: 'ప్లంబింగ్', ta: 'பிளம்பிங்', gu: 'પ્લંબિંગ' },
-  ELECTRICAL: { en: 'Electrical', hi: 'इलेक्ट्रिकल', mr: 'इलेक्ट्रिकल', te: 'ఎలక్ట్రికల్', ta: 'எலக்ட்ரிக்கல்', gu: 'ઇલેક્ટ્રિકલ' },
-  PAINTING: { en: 'Painting', hi: 'पेंटिंग', mr: 'पेंटिंग', te: 'పెయింటింగ్', ta: 'பெயிண்டிங்', gu: 'પેઇન્ટિંગ' },
-  CLEANING: { en: 'Cleaning', hi: 'सफाई', mr: 'स्वच्छता', te: 'శుభ్రపరచడం', ta: 'சுத்தம்', gu: 'સફાઈ' },
-  HANDYMAN: { en: 'Handyman', hi: 'हैंडीमैन', mr: 'हँडीमॅन', te: 'హ్యాండీమ్యాన్', ta: 'ஹேண்டிமேன்', gu: 'હેન્ડીમેન' },
-  GARDENING: { en: 'Gardening', hi: 'बागवानी', mr: 'बागकाम', te: 'తోటపని', ta: 'தோட்டப்பணி', gu: 'બાગબગીચો' },
+  PLUMBING: { en: 'Plumbing', hi: 'à¤ªà¥à¤²à¤‚à¤¬à¤¿à¤‚à¤—', mr: 'à¤ªà¥à¤²à¤‚à¤¬à¤¿à¤‚à¤—', te: 'à°ªà±à°²à°‚à°¬à°¿à°‚à°—à±', ta: 'à®ªà®¿à®³à®®à¯à®ªà®¿à®™à¯', gu: 'àªªà«àª²àª‚àª¬àª¿àª‚àª—' },
+  ELECTRICAL: { en: 'Electrical', hi: 'à¤‡à¤²à¥‡à¤•à¥à¤Ÿà¥à¤°à¤¿à¤•à¤²', mr: 'à¤‡à¤²à¥‡à¤•à¥à¤Ÿà¥à¤°à¤¿à¤•à¤²', te: 'à°Žà°²à°•à±à°Ÿà±à°°à°¿à°•à°²à±', ta: 'à®Žà®²à®•à¯à®Ÿà¯à®°à®¿à®•à¯à®•à®²à¯', gu: 'àª‡àª²à«‡àª•à«àªŸà«àª°àª¿àª•àª²' },
+  CARPENTRY: { en: 'Carpentry', hi: 'à¤¬à¤¢à¤¼à¤ˆ à¤•à¤¾ à¤•à¤¾à¤®', mr: 'à¤¸à¥à¤¤à¤¾à¤°à¤•à¤¾à¤®', te: 'à°•à°¾à°°à±à°ªà±†à°‚à°Ÿà±à°°à±€', ta: 'à®¤à®šà¯à®šà¯ à®ªà®£à®¿', gu: 'àª¸à«àª¤àª¾àª°àª•àª¾àª®' },
+  PAINTING: { en: 'Painting', hi: 'à¤ªà¥‡à¤‚à¤Ÿà¤¿à¤‚à¤—', mr: 'à¤ªà¥‡à¤‚à¤Ÿà¤¿à¤‚à¤—', te: 'à°ªà±†à°¯à°¿à°‚à°Ÿà°¿à°‚à°—à±', ta: 'à®ªà¯†à®¯à®¿à®£à¯à®Ÿà®¿à®™à¯', gu: 'àªªà«‡àª‡àª¨à«àªŸàª¿àª‚àª—' },
+  CLEANING: { en: 'Cleaning', hi: 'à¤¸à¤«à¤¾à¤ˆ', mr: 'à¤¸à¥à¤µà¤šà¥à¤›à¤¤à¤¾', te: 'à°¶à±à°­à±à°°à°ªà°°à°šà°¡à°‚', ta: 'à®šà¯à®¤à¯à®¤à®®à¯', gu: 'àª¸àª«àª¾àªˆ' },
+  HANDYMAN: { en: 'Handyman', hi: 'à¤¹à¥ˆà¤‚à¤¡à¥€à¤®à¥ˆà¤¨', mr: 'à¤¹à¤à¤¡à¥€à¤®à¥…à¤¨', te: 'à°¹à±à°¯à°¾à°‚à°¡à±€à°®à±à°¯à°¾à°¨à±', ta: 'à®¹à¯‡à®£à¯à®Ÿà®¿à®®à¯‡à®©à¯', gu: 'àª¹à«‡àª¨à«àª¡à«€àª®à«‡àª¨' },
+  GARDENING: { en: 'Gardening', hi: 'à¤¬à¤¾à¤—à¤µà¤¾à¤¨à¥€', mr: 'à¤¬à¤¾à¤—à¤•à¤¾à¤®', te: 'à°¤à±‹à°Ÿà°ªà°¨à°¿', ta: 'à®¤à¯‹à®Ÿà¯à®Ÿà®ªà¯à®ªà®£à®¿', gu: 'àª¬àª¾àª—àª¬àª—à«€àªšà«‹' },
 };
 
 function useI18n() {
   const language = usePreferencesStore((state) => state.language);
+  const currency = usePreferencesStore((state) => state.currency);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
-  const t = (key: TranslationKey) => translations[language][key] ?? translations.en[key];
-  return { language, setLanguage, t };
+  const setCurrency = usePreferencesStore((state) => state.setCurrency);
+  const t = (key: TranslationKey): string => translations[language][key] ?? translations.en[key] ?? key;
+  return { language, currency, setLanguage, setCurrency, t };
 }
 
-function formatCurrency(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return 'N/A';
-  return `₹${Math.round(value)}`;
+function formatCurrency(value: number | null | undefined, language: LanguageCode, currency: CurrencyCode, t: (key: TranslationKey) => string) {
+  if (value === null || value === undefined || Number.isNaN(value)) return t('notAvailable');
+  try {
+    return new Intl.NumberFormat(LOCALE_MAP[language], {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${currency} ${Math.round(value)}`;
+  }
 }
 
 function formatDate(date: string, language: LanguageCode) {
@@ -75,6 +115,35 @@ function formatStatus(status: BookingStatus, language: LanguageCode) {
 function formatCategoryLabel(category: string, language: LanguageCode) {
   const key = category.toUpperCase().replace(/\s+/g, '_');
   return CATEGORY_LABELS[key]?.[language] ?? category.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function joinMeta(parts: Array<string | null | undefined>) {
+  return parts.filter((part): part is string => Boolean(part && part.trim())).join(' | ');
+}
+
+function categoryIcon(category: Pick<Category, 'code' | 'icon'>) {
+  const fallback = CATEGORY_FALLBACKS.find((item) => item.code === category.code)?.icon ?? 'ðŸ§°';
+  return category.icon?.trim() || fallback;
+}
+
+function orderedCategories(categories?: Category[]) {
+  const merged = new Map<string, Category>();
+  CATEGORY_FALLBACKS.forEach((category) => {
+    merged.set(category.code, category);
+  });
+  (categories ?? []).forEach((category) => {
+    const fallback = merged.get(category.code);
+    merged.set(category.code, {
+      ...fallback,
+      ...category,
+      icon: category.icon?.trim() || fallback?.icon || '🧰',
+    });
+  });
+  return [...merged.values()].sort((left, right) => {
+    const leftIndex = CATEGORY_ORDER.indexOf(left.code);
+    const rightIndex = CATEGORY_ORDER.indexOf(right.code);
+    return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex);
+  });
 }
 
 function openDirections(latitude: number, longitude: number, errorMessage: string) {
@@ -104,7 +173,26 @@ function DecorativeBackground() {
   );
 }
 
-function FixCartLogo({ compact = false }: { compact?: boolean }) {
+function ScreenFrame({ children, contentContainerStyle }: { children: React.ReactNode; contentContainerStyle?: object }) {
+  return (
+    <SafeAreaView style={styles.container}>
+      <DecorativeBackground />
+      <KeyboardAvoidingView style={styles.flex} behavior={KEYBOARD_BEHAVIOR} keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}>
+        <ScrollView
+          contentContainerStyle={[styles.screenContent, contentContainerStyle]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+function FixCartLogo({ compact = false, caption }: { compact?: boolean; caption?: string }) {
   return (
     <View style={styles.logoWrap}>
       <View style={[styles.logoMark, compact && styles.logoMarkCompact]}>
@@ -116,14 +204,14 @@ function FixCartLogo({ compact = false }: { compact?: boolean }) {
       </View>
       <View>
         <Text style={[styles.logoText, compact && styles.logoTextCompact]}>FixCart</Text>
-        {!compact ? <Text style={styles.logoCaption}>Comfortable local service booking</Text> : null}
+        {!compact ? <Text style={styles.logoCaption}>{caption}</Text> : null}
       </View>
     </View>
   );
 }
 
 function LanguageSwitcher() {
-  const { language, setLanguage, t } = useI18n();
+  const { language, currency, setLanguage, setCurrency, t } = useI18n();
   return (
     <View style={styles.languageWrap}>
       <Text style={styles.languageLabel}>{t('language')}</Text>
@@ -132,6 +220,18 @@ function LanguageSwitcher() {
           const active = option.code === language;
           return (
             <TouchableOpacity key={option.code} style={[styles.languageChip, active && styles.languageChipActive]} onPress={() => void setLanguage(option.code)}>
+              <Text style={[styles.languageChipText, active && styles.languageChipTextActive]}>{option.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+      <Text style={[styles.languageLabel, styles.preferenceLabel]}>{t('currency')}</Text>
+      <Text style={styles.sectionHint}>{t('currencyHint')}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.languageRow}>
+        {CURRENCY_OPTIONS.map((option) => {
+          const active = option.code === currency;
+          return (
+            <TouchableOpacity key={option.code} style={[styles.languageChip, active && styles.languageChipActive]} onPress={() => void setCurrency(option.code)}>
               <Text style={[styles.languageChipText, active && styles.languageChipTextActive]}>{option.label}</Text>
             </TouchableOpacity>
           );
@@ -184,8 +284,31 @@ function SectionHint({ children }: { children: React.ReactNode }) {
   return <Text style={styles.sectionHint}>{children}</Text>;
 }
 
+function QueryFeedback({ loading, error, emptyMessage }: { loading?: boolean; error?: boolean; emptyMessage?: string }) {
+  if (loading) return <ActivityIndicator style={styles.queryLoader} color={THEME.teal} />;
+  if (error) return <Text style={styles.errorText}>{emptyMessage ?? 'Something went wrong.'}</Text>;
+  return null;
+}
+
+function CategoryGrid({ categories, selectedCode, onSelect, language }: { categories: Category[]; selectedCode: string | string[]; onSelect: (code: string) => void; language: LanguageCode }) {
+  const selectedCodes = Array.isArray(selectedCode) ? selectedCode : [selectedCode];
+  return (
+    <View style={styles.categoryGrid}>
+      {categories.map((category) => {
+        const active = selectedCodes.includes(category.code);
+        return (
+          <TouchableOpacity key={category.id ?? category.code} style={[styles.categoryCard, active && styles.categoryCardActive]} onPress={() => onSelect(category.code)} activeOpacity={0.88}>
+            <Text style={styles.categoryIcon}>{categoryIcon(category)}</Text>
+            <Text style={[styles.categoryTitle, active && styles.categoryTitleActive]}>{formatCategoryLabel(category.code || category.name, language)}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 function AuthScreen() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const signIn = useSessionStore((state) => state.signIn);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('customer@fixcart.app');
@@ -194,16 +317,34 @@ function AuthScreen() {
   const [lastName, setLastName] = useState('Sharma');
   const [phone, setPhone] = useState('9999999999');
   const [role, setRole] = useState<'CUSTOMER' | 'WORKER'>('CUSTOMER');
+  const [workerCategoryCodes, setWorkerCategoryCodes] = useState<string[]>(['PLUMBING']);
+  const categoryQuery = useQuery({ queryKey: ['public-categories'], queryFn: api.categories });
+  const workerCategoryOptions = useMemo(() => orderedCategories(categoryQuery.data), [categoryQuery.data]);
+  const workerPrimaryCategoryCode = workerCategoryCodes[0];
+  const toggleWorkerCategory = (code: string) => {
+    setWorkerCategoryCodes((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
+  };
+  const canSubmitRegister = !(mode === 'register' && role === 'WORKER' && workerCategoryCodes.length === 0);
   const loginMutation = useMutation({ mutationFn: () => api.login({ email, password }), onSuccess: signIn, onError: (error: Error) => Alert.alert(t('loginFailed'), error.message) });
-  const registerMutation = useMutation({ mutationFn: () => api.register({ email, password, firstName, lastName, phone, role }), onSuccess: signIn, onError: (error: Error) => Alert.alert(t('registrationFailed'), error.message) });
+  const registerMutation = useMutation({
+    mutationFn: () => api.register({
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      role,
+      serviceCategoryCode: role === 'WORKER' ? workerPrimaryCategoryCode : undefined,
+    }),
+    onSuccess: signIn,
+    onError: (error: Error) => Alert.alert(t('registrationFailed'), error.message),
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <DecorativeBackground />
-      <ScrollView contentContainerStyle={styles.authWrap}>
+    <ScreenFrame contentContainerStyle={styles.authWrap}>
         <AnimatedSection>
           <HeroBanner eyebrow={t('themeComfort')} title={t('loginHeroTitle')} subtitle={t('loginHeroSubtitle')}>
-            <FixCartLogo />
+            <FixCartLogo caption={t('logoCaption')} />
           </HeroBanner>
         </AnimatedSection>
         <AnimatedSection delay={80}><LanguageSwitcher /></AnimatedSection>
@@ -215,27 +356,33 @@ function AuthScreen() {
             </View>
             {mode === 'register' ? (
               <>
-                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder={t('firstName')} placeholderTextColor={THEME.muted} />
-                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder={t('lastName')} placeholderTextColor={THEME.muted} />
-                <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder={t('phone')} placeholderTextColor={THEME.muted} keyboardType="phone-pad" />
+                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder={t('firstName')} placeholderTextColor={THEME.muted} returnKeyType="next" />
+                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder={t('lastName')} placeholderTextColor={THEME.muted} returnKeyType="next" />
+                <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder={t('phone')} placeholderTextColor={THEME.muted} keyboardType="phone-pad" returnKeyType="next" />
                 <View style={styles.segmentRow}>
                   <TouchableOpacity style={[styles.segment, role === 'CUSTOMER' && styles.segmentActive]} onPress={() => setRole('CUSTOMER')}><Text style={styles.segmentText}>{t('customer')}</Text></TouchableOpacity>
                   <TouchableOpacity style={[styles.segment, role === 'WORKER' && styles.segmentActive]} onPress={() => setRole('WORKER')}><Text style={styles.segmentText}>{t('worker')}</Text></TouchableOpacity>
                 </View>
+                {role === 'WORKER' ? (
+                  <View style={styles.workerCategoryBlock}>
+                    <Text style={styles.languageLabel}>{t('workerCategorySetup')}</Text>
+                    <SectionHint>{t('workerCategoryHint')}</SectionHint>
+                    <CategoryGrid categories={workerCategoryOptions} selectedCode={workerCategoryCodes} onSelect={toggleWorkerCategory} language={language} />
+                  </View>
+                ) : null}
               </>
             ) : null}
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder={t('email')} placeholderTextColor={THEME.muted} autoCapitalize="none" />
-            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder={t('password')} placeholderTextColor={THEME.muted} secureTextEntry />
-            <ActionButton title={mode === 'login' ? t('continue') : t('createAccount')} onPress={() => (mode === 'login' ? loginMutation.mutate() : registerMutation.mutate())} disabled={loginMutation.isPending || registerMutation.isPending} />
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder={t('email')} placeholderTextColor={THEME.muted} autoCapitalize="none" keyboardType="email-address" returnKeyType="next" />
+            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder={t('password')} placeholderTextColor={THEME.muted} secureTextEntry returnKeyType="done" />
+            <ActionButton title={mode === 'login' ? t('continue') : t('createAccount')} onPress={() => (mode === 'login' ? loginMutation.mutate() : registerMutation.mutate())} disabled={loginMutation.isPending || registerMutation.isPending || !canSubmitRegister} />
             {(loginMutation.isPending || registerMutation.isPending) ? <ActivityIndicator style={styles.loader} color={THEME.teal} /> : null}
             <Text style={styles.demoText}>{t('demoAccounts')}: customer@fixcart.app / Password@123 and worker@fixcart.app / Password@123</Text>
           </View>
         </AnimatedSection>
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenFrame>
   );
 }
-function WorkerCardView({ worker, language, t, isSaved = false, onToggleSaved }: { worker: WorkerCard; language: LanguageCode; t: (key: TranslationKey) => string; isSaved?: boolean; onToggleSaved?: () => void }) {
+function WorkerCardView({ worker, language, currency, t, isSaved = false, onToggleSaved }: { worker: WorkerCard; language: LanguageCode; currency: CurrencyCode; t: (key: TranslationKey) => string; isSaved?: boolean; onToggleSaved?: () => void }) {
   const signals = [
     worker.rating >= 4.5 ? t('topRated') : null,
     worker.distanceKm !== null && worker.distanceKm !== undefined && worker.distanceKm <= 3 ? t('nearby') : null,
@@ -246,36 +393,58 @@ function WorkerCardView({ worker, language, t, isSaved = false, onToggleSaved }:
   return (
     <View style={styles.card}>
       <View style={styles.cardRow}>
-        {worker.recommendationScore ? <View style={styles.badge}><Text style={styles.badgeText}>{t('bestMatch')} • {(worker.recommendationScore * 100).toFixed(0)}%</Text></View> : <View />}
+        {worker.recommendationScore ? <View style={styles.badge}><Text style={styles.badgeText}>{t('bestMatch')} | {(worker.recommendationScore * 100).toFixed(0)}%</Text></View> : <View />}
         {onToggleSaved ? <ActionButton title={isSaved ? t('saved') : t('save')} onPress={onToggleSaved} kind="secondary" /> : null}
       </View>
       <Text style={styles.cardTitle}>{worker.name}</Text>
-      <Text style={styles.cardMeta}>{formatCategoryLabel(worker.category, language)} • {worker.experienceYears} {t('yearsExperience')}</Text>
-      <Text style={styles.cardMeta}>Rating {worker.rating?.toFixed?.(1) ?? worker.rating}/5 • {worker.totalReviews ?? 0} {t('verifiedReviews')} • {t('startsAt')} {formatCurrency(worker.basePrice)}</Text>
+      <Text style={styles.cardMeta}>{formatCategoryLabel(worker.category, language)} | {worker.experienceYears} {t('yearsExperience')}</Text>
+      <Text style={styles.cardMeta}>{t('ratingLabel')} {worker.rating?.toFixed?.(1) ?? worker.rating}/5 | {worker.totalReviews ?? 0} {t('verifiedReviews')} | {t('startsAt')} {formatCurrency(worker.basePrice, language, currency, t)}</Text>
       <View style={styles.pillRow}>
         {signals.map((signal) => <View key={signal} style={styles.pill}><Text style={styles.pillText}>{signal}</Text></View>)}
       </View>
-      <Text style={styles.cardMeta}>{t('hourly')}: {formatCurrency(worker.hourlyRate)} • {t('distance')}: {worker.distanceKm ? `${worker.distanceKm.toFixed(1)} km` : 'N/A'}</Text>
+      <Text style={styles.cardMeta}>{t('hourly')}: {formatCurrency(worker.hourlyRate, language, currency, t)} | {t('distance')}: {worker.distanceKm ? `${worker.distanceKm.toFixed(1)} km` : t('notAvailable')}</Text>
       {worker.recommendationExplanation ? <Text style={styles.cardBody}>{worker.recommendationExplanation}</Text> : null}
       <Text style={styles.cardBody}>{worker.bio}</Text>
     </View>
   );
 }
 
-function NearbyWorkersMap({ workers, selectedWorkerId, onSelectWorker, savedWorkerIds, onToggleSaved, language, t }: { workers: WorkerCard[]; selectedWorkerId: string | null; onSelectWorker: (workerId: string) => void; savedWorkerIds: Set<string>; onToggleSaved: (workerId: string) => void; language: LanguageCode; t: (key: TranslationKey) => string }) {
+function NearbyWorkersMap({ workers, selectedWorkerId, onSelectWorker, savedWorkerIds, onToggleSaved, language, currency, t }: { workers: WorkerCard[]; selectedWorkerId: string | null; onSelectWorker: (workerId: string) => void; savedWorkerIds: Set<string>; onToggleSaved: (workerId: string) => void; language: LanguageCode; currency: CurrencyCode; t: (key: TranslationKey) => string }) {
   const selectedWorker = workers.find((worker) => worker.workerId === selectedWorkerId) ?? workers[0] ?? null;
   const region = selectedWorker ? { latitude: selectedWorker.latitude, longitude: selectedWorker.longitude, latitudeDelta: 0.08, longitudeDelta: 0.08 } : DEFAULT_MAP_REGION;
   if (!workers.length) return <SectionHint>{t('nearbyWorkersListHint')}</SectionHint>;
   return (
     <View style={styles.mapBlock}>
-      <View style={styles.mapWrap}>
-        <MapView style={styles.map} region={region}>
-          {workers.map((worker) => (
-            <Marker key={worker.workerId} coordinate={{ latitude: worker.latitude, longitude: worker.longitude }} title={worker.name} description={`${formatCategoryLabel(worker.category, language)} • ${formatCurrency(worker.basePrice)}`} pinColor={worker.workerId === selectedWorker?.workerId ? THEME.amber : THEME.teal} onPress={() => onSelectWorker(worker.workerId)} />
-          ))}
-        </MapView>
-      </View>
-      {selectedWorker ? <WorkerCardView worker={selectedWorker} language={language} t={t} isSaved={savedWorkerIds.has(selectedWorker.workerId)} onToggleSaved={() => onToggleSaved(selectedWorker.workerId)} /> : null}
+      {ENABLE_NATIVE_MAPS ? (
+        <View style={styles.mapWrap}>
+          <MapView style={styles.map} region={region}>
+            {workers.map((worker) => (
+              <Marker key={worker.workerId} coordinate={{ latitude: worker.latitude, longitude: worker.longitude }} title={worker.name} description={`${formatCategoryLabel(worker.category, language)} | ${formatCurrency(worker.basePrice, language, currency, t)}`} pinColor={worker.workerId === selectedWorker?.workerId ? THEME.amber : THEME.teal} onPress={() => onSelectWorker(worker.workerId)} />
+            ))}
+          </MapView>
+        </View>
+      ) : (
+        <View style={styles.mapFallbackCard}>
+          <Text style={styles.mapFallbackTitle}>{t('nearbyWorkersMapHint')}</Text>
+          <Text style={styles.sectionHint}>{t('nearbyWorkersListHint')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mapFallbackRow}>
+            {workers.map((worker) => {
+              const selected = worker.workerId === selectedWorker?.workerId;
+              return (
+                <TouchableOpacity key={worker.workerId} style={[styles.horizontalCard, styles.card, selected && styles.horizontalCardSelected]} onPress={() => onSelectWorker(worker.workerId)} activeOpacity={0.9}>
+                  <WorkerCardView worker={worker} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(worker.workerId)} onToggleSaved={() => onToggleSaved(worker.workerId)} />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+      {selectedWorker ? (
+        <>
+          <WorkerCardView worker={selectedWorker} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(selectedWorker.workerId)} onToggleSaved={() => onToggleSaved(selectedWorker.workerId)} />
+          <ActionButton title={t('openDirections')} onPress={() => void openDirections(selectedWorker.latitude, selectedWorker.longitude, t('mapUnavailable'))} kind="secondary" />
+        </>
+      ) : null}
     </View>
   );
 }
@@ -297,12 +466,12 @@ function StatusTimeline({ booking, language }: { booking: Booking; language: Lan
   );
 }
 
-function BookingCard({ booking, language, t, onChat, onSelect, onReview, onRebook }: { booking: Booking; language: LanguageCode; t: (key: TranslationKey) => string; onChat?: () => void; onSelect?: () => void; onReview?: () => void; onRebook?: () => void }) {
+function BookingCard({ booking, language, currency, t, onChat, onSelect, onReview, onRebook }: { booking: Booking; language: LanguageCode; currency: CurrencyCode; t: (key: TranslationKey) => string; onChat?: () => void; onSelect?: () => void; onReview?: () => void; onRebook?: () => void }) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{booking.title}</Text>
-      <Text style={styles.cardMeta}>{formatCategoryLabel(booking.category, language)} • {formatStatus(booking.status, language)}</Text>
-      <Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(booking.budget)} • {t('expectedHours')}: {booking.expectedDurationHours}h</Text>
+      <Text style={styles.cardMeta}>{formatCategoryLabel(booking.category, language)} | {formatStatus(booking.status, language)}</Text>
+      <Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(booking.budget, language, currency, t)} | {t('expectedHours')}: {booking.expectedDurationHours}h</Text>
       <Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(booking.preferredTime, language)}</Text>
       <Text style={styles.cardMeta}>{t('address')}: {booking.address}</Text>
       {booking.workerName ? <Text style={styles.cardMeta}>{t('assignedWorker')}: {booking.workerName}</Text> : null}
@@ -323,14 +492,14 @@ function BookingActions({ actions, language, t, onStatus }: { actions: BookingSt
 }
 
 function RatingPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <View style={styles.actionRow}>{[1, 2, 3, 4, 5].map((item) => <TouchableOpacity key={item} style={[styles.ratingChip, String(item) === value && styles.ratingChipActive]} onPress={() => onChange(String(item))}><Text style={styles.ratingChipText}>{item}★</Text></TouchableOpacity>)}</View>;
+  return <View style={styles.actionRow}>{[1, 2, 3, 4, 5].map((item) => <TouchableOpacity key={item} style={[styles.ratingChip, String(item) === value && styles.ratingChipActive]} onPress={() => onChange(String(item))}><Text style={styles.ratingChipText}>{item} / 5</Text></TouchableOpacity>)}</View>;
 }
 
 function ExistingReviewCard({ review, language, t }: { review: Review; language: LanguageCode; t: (key: TranslationKey) => string }) {
   return (
     <View style={styles.reviewCard}>
       <Text style={styles.cardTitle}>{t('reviewSubmitted')}</Text>
-      <Text style={styles.cardMeta}>Rating: {review.rating}/5</Text>
+      <Text style={styles.cardMeta}>{t('ratingLabel')}: {review.rating}/5</Text>
       <Text style={styles.cardBody}>{review.comment}</Text>
       <Text style={styles.timelineMeta}>{formatDate(review.createdAt, language)}</Text>
     </View>
@@ -349,35 +518,45 @@ function ChatPanel({ token, bookingId, t, language }: { token: string; bookingId
   if (roomQuery.isLoading) return <ActivityIndicator color={THEME.teal} />;
   if (roomQuery.isError) return <Text style={styles.errorText}>{t('chatUnavailable')}</Text>;
   return (
-    <View>
-      {roomQuery.data?.messages.length ? roomQuery.data.messages.map((item) => (
-        <View key={item.id} style={styles.chatBubble}>
-          <Text style={styles.chatSender}>{item.senderName}</Text>
-          <Text style={styles.cardBody}>{item.message}</Text>
-          <Text style={styles.timelineMeta}>{formatDate(item.sentAt, language)}</Text>
-        </View>
-      )) : <SectionHint>{t('noMessagesYet')}</SectionHint>}
-      <TextInput style={styles.input} value={message} onChangeText={setMessage} placeholder={t('message')} placeholderTextColor={THEME.muted} />
+    <View style={styles.chatPanel}>
+      <View style={styles.chatMessages}>
+        {roomQuery.data?.messages.length ? roomQuery.data.messages.map((item) => (
+          <View key={item.id} style={styles.chatBubble}>
+            <Text style={styles.chatSender}>{item.senderName}</Text>
+            <Text style={styles.cardBody}>{item.message}</Text>
+            <Text style={styles.timelineMeta}>{formatDate(item.sentAt, language)}</Text>
+          </View>
+        )) : <SectionHint>{t('noMessagesYet')}</SectionHint>}
+      </View>
+      <TextInput style={[styles.input, styles.chatInput]} value={message} onChangeText={setMessage} placeholder={t('message')} placeholderTextColor={THEME.muted} multiline />
       <ActionButton title={sendMutation.isPending ? t('sending') : t('send')} onPress={() => sendMutation.mutate()} disabled={!message.trim() || sendMutation.isPending} />
     </View>
   );
 }
 
-function RoutePreview({ booking, t }: { booking: Booking; t: (key: TranslationKey) => string }) {
+function RoutePreview({ booking, t, language }: { booking: Booking; t: (key: TranslationKey) => string; language: LanguageCode }) {
   return (
     <View style={styles.routeCard}>
       <SectionHint>{t('workerRouteMapHint')}</SectionHint>
-      <View style={styles.routeMapWrap}>
-        <MapView style={styles.routeMap} region={{ latitude: booking.latitude, longitude: booking.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }}>
-          <Marker coordinate={{ latitude: booking.latitude, longitude: booking.longitude }} title={booking.customerName} description={booking.address} />
-        </MapView>
-      </View>
+      {ENABLE_NATIVE_MAPS ? (
+        <View style={styles.routeMapWrap}>
+          <MapView style={styles.routeMap} region={{ latitude: booking.latitude, longitude: booking.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }}>
+            <Marker coordinate={{ latitude: booking.latitude, longitude: booking.longitude }} title={booking.customerName} description={booking.address} />
+          </MapView>
+        </View>
+      ) : (
+        <View style={styles.routeFallbackCard}>
+          <Text style={styles.cardTitle}>{booking.customerName}</Text>
+          <Text style={styles.cardMeta}>{booking.address}</Text>
+          <Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(booking.preferredTime, language)}</Text>
+        </View>
+      )}
       <ActionButton title={t('openDirections')} onPress={() => void openDirections(booking.latitude, booking.longitude, t('mapUnavailable'))} />
     </View>
   );
 }
 function CustomerDashboard() {
-  const { language, t } = useI18n();
+  const { language, currency, t } = useI18n();
   const token = useSessionStore((state) => state.accessToken)!;
   const signOut = useSessionStore((state) => state.signOut);
   const queryClient = useQueryClient();
@@ -399,6 +578,7 @@ function CustomerDashboard() {
 
   const workers = workersQuery.data ?? [];
   const bookings = bookingsQuery.data ?? [];
+  const categories = orderedCategories(categoriesQuery.data);
   const savedWorkerIds = useMemo(() => new Set((savedWorkersQuery.data ?? []).map((item) => item.workerId)), [savedWorkersQuery.data]);
   const savedWorkersVisible = workers.filter((worker) => savedWorkerIds.has(worker.workerId));
   useEffect(() => {
@@ -441,27 +621,25 @@ function CustomerDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <DecorativeBackground />
-      <ScrollView contentContainerStyle={styles.screenContent}>
+    <ScreenFrame>
         <AnimatedSection>
           <View style={styles.headerCard}><View style={styles.headerBlock}><FixCartLogo compact /><Text style={styles.headerTitle}>{t('customerDashboard')}</Text></View><ActionButton title={t('logout')} onPress={() => void signOut()} kind="secondary" /></View>
           <Text style={styles.liveStatus}>{t('liveUpdates')}: {realtimeLabel(customerRealtimeStatus, t)}</Text>
         </AnimatedSection>
         <AnimatedSection delay={60}><LanguageSwitcher /></AnimatedSection>
         <AnimatedSection delay={100}><HeroBanner eyebrow={t('quickBooking')} title={t('quickBookingTitle')} subtitle={t('quickBookingSubtitle')}><View style={styles.metricGrid}><MetricTile label={t('nearbyWorkers')} value={String(workers.length)} accent /><MetricTile label={t('savedWorkers')} value={String(savedWorkerIds.size)} /><MetricTile label={t('activeBookings')} value={String(bookings.length)} /></View></HeroBanner></AnimatedSection>
-        {workers[0] ? <AnimatedSection delay={130}><Section title={t('topRecommendedWorker')}><SectionHint>{t('topRecommendedHint')}</SectionHint><WorkerCardView worker={workers[0]} language={language} t={t} isSaved={savedWorkerIds.has(workers[0].workerId)} onToggleSaved={() => handleToggleSavedWorker(workers[0].workerId)} /></Section></AnimatedSection> : null}
-        <AnimatedSection delay={160}><Section title={t('savedWorkersTitle')}>{savedWorkersVisible.length ? savedWorkersVisible.map((worker) => <WorkerCardView key={worker.workerId} worker={worker} language={language} t={t} isSaved onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} />) : <SectionHint>{t('savedWorkersHint')}</SectionHint>}</Section></AnimatedSection>
-        <AnimatedSection delay={190}><Section title={t('nearbyWorkersMap')}><SectionHint>{t('nearbyWorkersMapHint')}</SectionHint><NearbyWorkersMap workers={workers} selectedWorkerId={selectedWorkerId} onSelectWorker={setSelectedWorkerId} savedWorkerIds={savedWorkerIds} onToggleSaved={handleToggleSavedWorker} language={language} t={t} /></Section></AnimatedSection>
-        <AnimatedSection delay={220}><Section title={t('nearbyWorkers')}><SectionHint>{t('nearbyWorkersListHint')}</SectionHint><ScrollView horizontal showsHorizontalScrollIndicator={false}>{workers.map((worker) => <TouchableOpacity key={worker.workerId} style={[styles.horizontalCard, selectedWorkerId === worker.workerId && styles.horizontalCardSelected]} onPress={() => setSelectedWorkerId(worker.workerId)}><WorkerCardView worker={worker} language={language} t={t} isSaved={savedWorkerIds.has(worker.workerId)} onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} /></TouchableOpacity>)}</ScrollView></Section></AnimatedSection>
-        <AnimatedSection delay={250}><Section title={t('createServiceRequest')}><Text style={styles.label}>{t('category')}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}>{(categoriesQuery.data ?? []).map((category: Category) => <TouchableOpacity key={category.id} style={[styles.choiceChip, selectedCategory === category.code && styles.choiceChipActive]} onPress={() => setSelectedCategory(category.code)}><Text style={styles.choiceChipText}>{formatCategoryLabel(category.code || category.name, language)}</Text></TouchableOpacity>)}</ScrollView><TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('jobTitle')} placeholderTextColor={THEME.muted} /><TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder={t('describeIssue')} placeholderTextColor={THEME.muted} multiline /><TextInput style={styles.input} value={budget} onChangeText={setBudget} placeholder={t('budget')} placeholderTextColor={THEME.muted} keyboardType="numeric" /><TextInput style={styles.input} value={duration} onChangeText={setDuration} placeholder={t('expectedHours')} placeholderTextColor={THEME.muted} keyboardType="numeric" /><TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder={t('address')} placeholderTextColor={THEME.muted} /><ActionButton title={createBookingMutation.isPending ? t('broadcasting') : t('broadcastRequest')} onPress={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending} /></Section></AnimatedSection>
-        <AnimatedSection delay={280}><Section title={t('myBookings')}>{bookings.length ? bookings.map((booking) => <BookingCard key={booking.bookingId} booking={booking} language={language} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} onChat={booking.workerId ? () => setSelectedBookingId(booking.bookingId) : undefined} onReview={booking.status === 'COMPLETED' ? () => setSelectedBookingId(booking.bookingId) : undefined} onRebook={booking.status === 'COMPLETED' ? () => handleRebook(booking) : undefined} />) : <SectionHint>{t('noBookingsYet')}</SectionHint>}</Section></AnimatedSection>
-        {selectedBooking ? <AnimatedSection delay={310}><Section title={t('selectedBookingDetails')}><Text style={styles.cardTitle}>{selectedBooking.title}</Text><Text style={styles.cardMeta}>{formatStatus(selectedBooking.status, language)}</Text><Text style={styles.cardBody}>{selectedBooking.description}</Text><Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(selectedBooking.preferredTime, language)}</Text>{selectedBooking.workerName ? <Text style={styles.cardMeta}>{t('workerLabel')}: {selectedBooking.workerName}</Text> : null}<SectionHint>{t('customerActionsHint')}</SectionHint><BookingActions actions={selectedActions} language={language} t={t} onStatus={(status) => updateStatusMutation.mutate({ bookingId: selectedBooking.bookingId, status })} /><Text style={styles.subTitle}>{t('statusHistory')}</Text><StatusTimeline booking={selectedBooking} language={language} /></Section></AnimatedSection> : null}
+        <AnimatedSection delay={120}><Section title={t('category')}><SectionHint>{t('quickBookingSubtitle')}</SectionHint><CategoryGrid categories={categories} selectedCode={selectedCategory} onSelect={setSelectedCategory} language={language} /></Section></AnimatedSection>
+        {workers[0] ? <AnimatedSection delay={130}><Section title={t('topRecommendedWorker')}><SectionHint>{t('topRecommendedHint')}</SectionHint><WorkerCardView worker={workers[0]} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(workers[0].workerId)} onToggleSaved={() => handleToggleSavedWorker(workers[0].workerId)} /></Section></AnimatedSection> : null}
+        <AnimatedSection delay={160}><Section title={t('savedWorkersTitle')}>{savedWorkersVisible.length ? savedWorkersVisible.map((worker) => <WorkerCardView key={worker.workerId} worker={worker} language={language} currency={currency} t={t} isSaved onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} />) : <SectionHint>{t('savedWorkersHint')}</SectionHint>}</Section></AnimatedSection>
+        <AnimatedSection delay={190}><Section title={t('nearbyWorkersMap')}><SectionHint>{t('nearbyWorkersMapHint')}</SectionHint><QueryFeedback loading={workersQuery.isLoading} error={workersQuery.isError} emptyMessage={t('nearbyWorkersListHint')} /><NearbyWorkersMap workers={workers} selectedWorkerId={selectedWorkerId} onSelectWorker={setSelectedWorkerId} savedWorkerIds={savedWorkerIds} onToggleSaved={handleToggleSavedWorker} language={language} currency={currency} t={t} /></Section></AnimatedSection>
+        <AnimatedSection delay={220}><Section title={t('nearbyWorkers')}><SectionHint>{t('nearbyWorkersListHint')}</SectionHint><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRail}>{workers.map((worker) => <TouchableOpacity key={worker.workerId} style={[styles.horizontalCard, selectedWorkerId === worker.workerId && styles.horizontalCardSelected]} onPress={() => setSelectedWorkerId(worker.workerId)} activeOpacity={0.9}><WorkerCardView worker={worker} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(worker.workerId)} onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} /></TouchableOpacity>)}</ScrollView></Section></AnimatedSection>
+        <AnimatedSection delay={250}><Section title={t('createServiceRequest')}><Text style={styles.label}>{t('category')}</Text><CategoryGrid categories={categories} selectedCode={selectedCategory} onSelect={setSelectedCategory} language={language} /><TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('jobTitle')} placeholderTextColor={THEME.muted} returnKeyType="next" /><TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder={t('describeIssue')} placeholderTextColor={THEME.muted} multiline /><View style={styles.compactFieldRow}><TextInput style={[styles.input, styles.compactField]} value={budget} onChangeText={setBudget} placeholder={`${t('budget')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /><TextInput style={[styles.input, styles.compactField]} value={duration} onChangeText={setDuration} placeholder={t('expectedHours')} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /></View><TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder={t('address')} placeholderTextColor={THEME.muted} /><ActionButton title={createBookingMutation.isPending ? t('broadcasting') : t('broadcastRequest')} onPress={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending} /></Section></AnimatedSection>
+        <AnimatedSection delay={280}><Section title={t('myBookings')}>{bookings.length ? bookings.map((booking) => <BookingCard key={booking.bookingId} booking={booking} language={language} currency={currency} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} onChat={booking.workerId ? () => setSelectedBookingId(booking.bookingId) : undefined} onReview={booking.status === 'COMPLETED' ? () => setSelectedBookingId(booking.bookingId) : undefined} onRebook={booking.status === 'COMPLETED' ? () => handleRebook(booking) : undefined} />) : <SectionHint>{t('noBookingsYet')}</SectionHint>}</Section></AnimatedSection>
+        {selectedBooking ? <AnimatedSection delay={310}><Section title={t('selectedBookingDetails')}><Text style={styles.cardTitle}>{selectedBooking.title}</Text><Text style={styles.cardMeta}>{formatStatus(selectedBooking.status, language)}</Text><Text style={styles.cardBody}>{selectedBooking.description}</Text><Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(selectedBooking.preferredTime, language)}</Text><Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(selectedBooking.budget, language, currency, t)}</Text>{selectedBooking.workerName ? <Text style={styles.cardMeta}>{t('workerLabel')}: {selectedBooking.workerName}</Text> : null}<SectionHint>{t('customerActionsHint')}</SectionHint><BookingActions actions={selectedActions} language={language} t={t} onStatus={(status) => updateStatusMutation.mutate({ bookingId: selectedBooking.bookingId, status })} /><Text style={styles.subTitle}>{t('statusHistory')}</Text><StatusTimeline booking={selectedBooking} language={language} /></Section></AnimatedSection> : null}
         {selectedBooking?.workerId ? <AnimatedSection delay={340}><Section title={`${t('chat')}: ${selectedBooking.title}`}><ChatPanel token={token} bookingId={selectedBooking.bookingId} t={t} language={language} /></Section></AnimatedSection> : null}
         {selectedBooking?.status === 'COMPLETED' && existingReview ? <AnimatedSection delay={370}><Section title={t('yourSubmittedReview')}><ExistingReviewCard review={existingReview} language={language} t={t} /></Section></AnimatedSection> : null}
         {selectedBooking?.status === 'COMPLETED' && !existingReview ? <AnimatedSection delay={400}><Section title={t('completeWithReview')}><Text style={styles.label}>{t('selectRating')}</Text><RatingPicker value={reviewRating} onChange={setReviewRating} /><TextInput style={[styles.input, styles.textArea]} value={reviewComment} onChangeText={setReviewComment} placeholder={t('review')} placeholderTextColor={THEME.muted} multiline /><ActionButton title={reviewMutation.isPending ? t('sending') : t('submitReview')} onPress={() => reviewMutation.mutate(selectedBooking.bookingId)} disabled={reviewMutation.isPending} /></Section></AnimatedSection> : null}
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenFrame>
   );
 }
 
@@ -474,7 +652,7 @@ function realtimeLabel(status: ReturnType<typeof useStompSubscriptions>, t: (key
 }
 
 function WorkerDashboard() {
-  const { language, t } = useI18n();
+  const { language, currency, t } = useI18n();
   const token = useSessionStore((state) => state.accessToken)!;
   const signOut = useSessionStore((state) => state.signOut);
   const queryClient = useQueryClient();
@@ -494,6 +672,7 @@ function WorkerDashboard() {
   const statusMutation = useMutation({ mutationFn: ({ bookingId, status }: { bookingId: string; status: BookingStatus }) => api.updateBookingStatus(token, bookingId, status), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['worker-bookings'] }); } });
   const activeBookings = bookingsQuery.data ?? [];
   const completedBookings = activeBookings.filter((booking) => booking.status === 'COMPLETED');
+  const workerCategoryCode = (profileQuery.data as { worker?: { primaryCategoryCode?: string } } | undefined)?.worker?.primaryCategoryCode ?? 'PLUMBING';
   const netEarned = completedBookings.reduce((sum, booking) => sum + Number(booking.workerPayout ?? Math.max(0, booking.budget - (booking.platformFee ?? 0))), 0);
   const platformGenerated = completedBookings.reduce((sum, booking) => sum + Number(booking.platformFee ?? 0), 0);
   const selectedBooking = activeBookings.find((booking) => booking.bookingId === selectedBookingId) ?? activeBookings[0] ?? null;
@@ -501,20 +680,17 @@ function WorkerDashboard() {
   const workerRealtimeStatus = useStompSubscriptions(['/topic/bookings/open', ...(selectedBooking ? [`/topic/bookings/${selectedBooking.bookingId}`, `/topic/chat/${selectedBooking.bookingId}`] : [])], { '/topic/bookings/open': async () => { await queryClient.invalidateQueries({ queryKey: ['open-bookings'] }); }, ...(selectedBooking ? { [`/topic/bookings/${selectedBooking.bookingId}`]: async () => { await queryClient.invalidateQueries({ queryKey: ['worker-bookings'] }); await queryClient.invalidateQueries({ queryKey: ['open-bookings'] }); }, [`/topic/chat/${selectedBooking.bookingId}`]: async () => { await queryClient.invalidateQueries({ queryKey: ['chat', selectedBooking.bookingId] }); } } : {}) }, true);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <DecorativeBackground />
-      <ScrollView contentContainerStyle={styles.screenContent}>
+    <ScreenFrame>
         <AnimatedSection><View style={styles.headerCard}><View style={styles.headerBlock}><FixCartLogo compact /><Text style={styles.headerTitle}>{t('workerDashboard')}</Text></View><ActionButton title={t('logout')} onPress={() => void signOut()} kind="secondary" /></View><Text style={styles.liveStatus}>{t('liveUpdates')}: {realtimeLabel(workerRealtimeStatus, t)}</Text></AnimatedSection>
         <AnimatedSection delay={60}><LanguageSwitcher /></AnimatedSection>
-        <AnimatedSection delay={100}><HeroBanner eyebrow={t('revenueFocus')} title={t('revenueTitle')} subtitle={t('revenueSubtitle')}><View style={styles.metricGrid}><MetricTile label={t('openJobs')} value={String((openBookingsQuery.data ?? []).length)} accent /><MetricTile label={t('netEarned')} value={formatCurrency(netEarned)} /><MetricTile label={t('completedJobs')} value={String(completedBookings.length)} /></View></HeroBanner></AnimatedSection>
-        <AnimatedSection delay={130}><Section title={t('profilePricing')}><SectionHint>{t('pricingHint')}</SectionHint><TextInput style={[styles.input, styles.textArea]} value={bio} onChangeText={setBio} placeholder={t('bio')} placeholderTextColor={THEME.muted} multiline /><TextInput style={styles.input} value={basePrice} onChangeText={setBasePrice} placeholder={t('basePrice')} placeholderTextColor={THEME.muted} keyboardType="numeric" /><TextInput style={styles.input} value={hourlyRate} onChangeText={setHourlyRate} placeholder={t('hourly')} placeholderTextColor={THEME.muted} keyboardType="numeric" /><ActionButton title={updateProfileMutation.isPending ? t('saving') : t('saveProfile')} onPress={() => updateProfileMutation.mutate()} disabled={updateProfileMutation.isPending} /></Section></AnimatedSection>
-        <AnimatedSection delay={160}><Section title={t('earningsSummary')}><SectionHint>{t('earningsHint')}</SectionHint><View style={styles.metricGrid}><MetricTile label={t('netPayout')} value={formatCurrency(netEarned)} accent /><MetricTile label={t('platformFee')} value={formatCurrency(platformGenerated)} /><MetricTile label={t('completedJobs')} value={String(completedBookings.length)} /></View></Section></AnimatedSection>
-        <AnimatedSection delay={190}><Section title={t('recommendedOpenJobs')}>{(openBookingsQuery.data ?? []).length ? (openBookingsQuery.data ?? []).map((booking) => <View key={booking.bookingId}><BookingCard booking={booking} language={language} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} /><ActionButton title={`${t('acceptJob')} ${booking.title}`} onPress={() => acceptMutation.mutate(booking.bookingId)} /></View>) : <SectionHint>{t('noOpenJobs')}</SectionHint>}</Section></AnimatedSection>
-        <AnimatedSection delay={220}><Section title={t('myActiveWork')}>{activeBookings.length ? activeBookings.map((booking) => <BookingCard key={booking.bookingId} booking={booking} language={language} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} onChat={() => setSelectedBookingId(booking.bookingId)} />) : <SectionHint>{t('noAcceptedJobs')}</SectionHint>}</Section></AnimatedSection>
-        {selectedBooking ? <AnimatedSection delay={250}><Section title={t('selectedWorkDetails')}><Text style={styles.cardTitle}>{selectedBooking.title}</Text><Text style={styles.cardMeta}>{selectedBooking.customerName}</Text><Text style={styles.cardBody}>{selectedBooking.description}</Text><Text style={styles.cardMeta}>{t('address')}: {selectedBooking.address}</Text><Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(selectedBooking.budget)}</Text><Text style={styles.subTitle}>{t('workerRouteMap')}</Text><RoutePreview booking={selectedBooking} t={t} /><BookingActions actions={selectedActions} language={language} t={t} onStatus={(status) => statusMutation.mutate({ bookingId: selectedBooking.bookingId, status })} /><Text style={styles.subTitle}>{t('statusHistory')}</Text><StatusTimeline booking={selectedBooking} language={language} /></Section></AnimatedSection> : null}
+        <AnimatedSection delay={100}><HeroBanner eyebrow={t('revenueFocus')} title={t('revenueTitle')} subtitle={t('revenueSubtitle')}><View style={styles.metricGrid}><MetricTile label={t('openJobs')} value={String((openBookingsQuery.data ?? []).length)} accent /><MetricTile label={t('netEarned')} value={formatCurrency(netEarned, language, currency, t)} /><MetricTile label={t('completedJobs')} value={String(completedBookings.length)} /></View></HeroBanner></AnimatedSection>
+        <AnimatedSection delay={130}><Section title={t('profilePricing')}><SectionHint>{t('pricingHint')}</SectionHint><View style={styles.infoStrip}><Text style={styles.infoStripLabel}>{formatCategoryLabel(workerCategoryCode, language)}</Text><Text style={styles.infoStripValue}>{t('availableNow')}</Text></View><TextInput style={[styles.input, styles.textArea]} value={bio} onChangeText={setBio} placeholder={t('bio')} placeholderTextColor={THEME.muted} multiline /><View style={styles.compactFieldRow}><TextInput style={[styles.input, styles.compactField]} value={basePrice} onChangeText={setBasePrice} placeholder={`${t('basePrice')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" /><TextInput style={[styles.input, styles.compactField]} value={hourlyRate} onChangeText={setHourlyRate} placeholder={`${t('hourly')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" /></View><ActionButton title={updateProfileMutation.isPending ? t('saving') : t('saveProfile')} onPress={() => updateProfileMutation.mutate()} disabled={updateProfileMutation.isPending} /></Section></AnimatedSection>
+        <AnimatedSection delay={160}><Section title={t('earningsSummary')}><SectionHint>{t('earningsHint')}</SectionHint><View style={styles.metricGrid}><MetricTile label={t('netPayout')} value={formatCurrency(netEarned, language, currency, t)} accent /><MetricTile label={t('platformFee')} value={formatCurrency(platformGenerated, language, currency, t)} /><MetricTile label={t('completedJobs')} value={String(completedBookings.length)} /></View></Section></AnimatedSection>
+        <AnimatedSection delay={190}><Section title={t('recommendedOpenJobs')}><QueryFeedback loading={openBookingsQuery.isLoading} error={openBookingsQuery.isError} emptyMessage={t('noOpenJobs')} />{(openBookingsQuery.data ?? []).length ? (openBookingsQuery.data ?? []).map((booking) => <View key={booking.bookingId}><BookingCard booking={booking} language={language} currency={currency} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} /><ActionButton title={`${t('acceptJob')} ${booking.title}`} onPress={() => acceptMutation.mutate(booking.bookingId)} /></View>) : <SectionHint>{t('noOpenJobs')}</SectionHint>}</Section></AnimatedSection>
+        <AnimatedSection delay={220}><Section title={t('myActiveWork')}>{activeBookings.length ? activeBookings.map((booking) => <BookingCard key={booking.bookingId} booking={booking} language={language} currency={currency} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} onChat={() => setSelectedBookingId(booking.bookingId)} />) : <SectionHint>{t('noAcceptedJobs')}</SectionHint>}</Section></AnimatedSection>
+        {selectedBooking ? <AnimatedSection delay={250}><Section title={t('selectedWorkDetails')}><Text style={styles.cardTitle}>{selectedBooking.title}</Text><Text style={styles.cardMeta}>{selectedBooking.customerName}</Text><Text style={styles.cardBody}>{selectedBooking.description}</Text><Text style={styles.cardMeta}>{t('address')}: {selectedBooking.address}</Text><Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(selectedBooking.budget, language, currency, t)}</Text><Text style={styles.subTitle}>{t('workerRouteMap')}</Text><RoutePreview booking={selectedBooking} t={t} language={language} /><BookingActions actions={selectedActions} language={language} t={t} onStatus={(status) => statusMutation.mutate({ bookingId: selectedBooking.bookingId, status })} /><Text style={styles.subTitle}>{t('statusHistory')}</Text><StatusTimeline booking={selectedBooking} language={language} /></Section></AnimatedSection> : null}
         {selectedBooking ? <AnimatedSection delay={280}><Section title={`${t('chat')}: ${selectedBooking.title}`}><ChatPanel token={token} bookingId={selectedBooking.bookingId} t={t} language={language} /></Section></AnimatedSection> : null}
-      </ScrollView>
-    </SafeAreaView>
+    </ScreenFrame>
   );
 }
 
@@ -528,23 +704,31 @@ function Root() {
   useEffect(() => { void hydrateSession(); void hydratePreferences(); }, [hydratePreferences, hydrateSession]);
   const meQuery = useQuery({ queryKey: ['me', token], queryFn: () => api.me(token!), enabled: !!token });
   const effectiveRole = useMemo(() => meQuery.data?.user.role ?? user?.role, [meQuery.data?.user.role, user?.role]);
+  useEffect(() => {
+    if (token && user?.id) {
+      void syncPushRegistration(token, user.id);
+    }
+  }, [token, user?.id]);
   if (!sessionHydrated || !preferencesHydrated) return <SafeAreaView style={styles.centered}><ActivityIndicator color={THEME.teal} size="large" /></SafeAreaView>;
   if (!token || !effectiveRole) return <AuthScreen />;
   return effectiveRole === 'WORKER' ? <WorkerDashboard /> : <CustomerDashboard />;
 }
 
-export default function App() {
+function App() {
   return <QueryClientProvider client={queryClient}><StatusBar style="dark" /><Root /></QueryClientProvider>;
 }
+
+export default withErrorBoundary(App);
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.bg },
+  flex: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: THEME.bg },
   bgDecor: { ...StyleSheet.absoluteFillObject },
   bgBlobA: { position: 'absolute', width: 220, height: 220, borderRadius: 999, backgroundColor: THEME.tealSoft, top: -70, right: -60, opacity: 0.75 },
   bgBlobB: { position: 'absolute', width: 170, height: 170, borderRadius: 999, backgroundColor: THEME.amberSoft, top: 220, left: -60, opacity: 0.66 },
   bgBlobC: { position: 'absolute', width: 190, height: 190, borderRadius: 999, backgroundColor: '#F5D8CF', bottom: 20, right: -80, opacity: 0.58 },
-  screenContent: { paddingBottom: 34 },
-  authWrap: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 36, gap: 14 },
+  screenContent: { paddingTop: 10, paddingBottom: 120 },
+  authWrap: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 48, gap: 14 },
   headerCard: { marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 24, backgroundColor: 'rgba(255,249,241,0.96)', borderWidth: 1, borderColor: THEME.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   headerBlock: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: THEME.ink, flexShrink: 1 },
@@ -568,6 +752,7 @@ const styles = StyleSheet.create({
   logoCaption: { color: THEME.muted, marginTop: 3 },
   languageWrap: { marginHorizontal: 16, marginTop: 12, padding: 14, borderRadius: 20, backgroundColor: 'rgba(255,249,241,0.94)', borderWidth: 1, borderColor: THEME.border },
   languageLabel: { color: THEME.ink, fontWeight: '800', marginBottom: 10 },
+  preferenceLabel: { marginTop: 6 },
   languageRow: { gap: 8, paddingRight: 10 },
   languageChip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: THEME.white, borderWidth: 1, borderColor: THEME.border },
   languageChipActive: { backgroundColor: THEME.teal, borderColor: THEME.teal },
@@ -575,16 +760,18 @@ const styles = StyleSheet.create({
   languageChipTextActive: { color: THEME.white },
   authCard: { marginHorizontal: 16, borderRadius: 24, padding: 18, backgroundColor: 'rgba(255,249,241,0.96)', borderWidth: 1, borderColor: THEME.border },
   segmentRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  workerCategoryBlock: { marginBottom: 12 },
   segment: { flex: 1, paddingVertical: 12, borderRadius: 16, backgroundColor: THEME.white, borderWidth: 1, borderColor: THEME.border, alignItems: 'center' },
   segmentActive: { backgroundColor: THEME.amberSoft, borderColor: THEME.amber },
   segmentText: { fontWeight: '800', color: THEME.ink },
-  input: { borderWidth: 1, borderColor: THEME.border, borderRadius: 16, backgroundColor: THEME.white, color: THEME.ink, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10 },
+  input: { borderWidth: 1, borderColor: THEME.border, borderRadius: 16, backgroundColor: THEME.white, color: THEME.ink, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10, minHeight: 52 },
   textArea: { minHeight: 92, textAlignVertical: 'top' },
   demoText: { marginTop: 14, color: THEME.muted, lineHeight: 19 },
   loader: { marginTop: 10 },
   section: { marginHorizontal: 16, marginTop: 14, padding: 16, borderRadius: 22, backgroundColor: 'rgba(255,249,241,0.96)', borderWidth: 1, borderColor: THEME.border },
   sectionTitle: { fontSize: 20, fontWeight: '800', color: THEME.ink, marginBottom: 10 },
   sectionHint: { color: THEME.muted, lineHeight: 20, marginBottom: 10 },
+  queryLoader: { marginVertical: 12 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   metricTile: { minWidth: 96, flexGrow: 1, backgroundColor: THEME.white, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: THEME.border },
   metricTileAccent: { backgroundColor: THEME.amberSoft },
@@ -605,10 +792,25 @@ const styles = StyleSheet.create({
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: { backgroundColor: THEME.amberSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   pillText: { color: '#87520A', fontSize: 12, fontWeight: '800' },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  categoryCard: { width: '48%', minHeight: 92, borderRadius: 18, backgroundColor: THEME.white, borderWidth: 1, borderColor: THEME.border, paddingHorizontal: 12, paddingVertical: 14, justifyContent: 'space-between' },
+  categoryCardActive: { backgroundColor: THEME.tealSoft, borderColor: THEME.teal },
+  categoryIcon: { fontSize: 24, marginBottom: 10 },
+  categoryTitle: { color: THEME.ink, fontWeight: '800', lineHeight: 20 },
+  categoryTitleActive: { color: THEME.teal },
+  compactFieldRow: { flexDirection: 'row', gap: 10 },
+  compactField: { flex: 1 },
+  infoStrip: { backgroundColor: THEME.tealSoft, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  infoStripLabel: { color: THEME.ink, fontWeight: '800', flex: 1 },
+  infoStripValue: { color: THEME.teal, fontWeight: '800' },
   mapBlock: { gap: 12 },
   mapWrap: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: THEME.border, backgroundColor: THEME.white },
   map: { width: '100%', height: 260 },
-  horizontalCard: { width: 320, marginRight: 12, borderRadius: 20 },
+  mapFallbackCard: { gap: 10 },
+  mapFallbackTitle: { color: THEME.ink, fontWeight: '700', lineHeight: 20 },
+  mapFallbackRow: { paddingRight: 6 },
+  horizontalRail: { paddingRight: 8 },
+  horizontalCard: { width: 286, marginRight: 12, borderRadius: 20 },
   horizontalCardSelected: { borderWidth: 2, borderColor: THEME.teal },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   choiceChip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 999, backgroundColor: THEME.white, borderWidth: 1, borderColor: THEME.border, marginRight: 8, marginBottom: 10 },
@@ -626,10 +828,15 @@ const styles = StyleSheet.create({
   ratingChipActive: { backgroundColor: THEME.amber },
   ratingChipText: { color: THEME.ink, fontWeight: '800' },
   reviewCard: { backgroundColor: '#FFF4E6', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: THEME.amberSoft },
+  chatPanel: { gap: 10 },
+  chatMessages: { maxHeight: 280 },
   chatBubble: { backgroundColor: '#FFF4E6', borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: THEME.border },
   chatSender: { color: THEME.ink, fontWeight: '800', marginBottom: 2 },
+  chatInput: { minHeight: 58, maxHeight: 120 },
   routeCard: { gap: 10 },
+  routeFallbackCard: { borderRadius: 18, padding: 14, backgroundColor: THEME.white, borderWidth: 1, borderColor: THEME.border, gap: 4 },
   routeMapWrap: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: THEME.border, backgroundColor: THEME.white },
   routeMap: { width: '100%', height: 210 },
   errorText: { color: THEME.danger },
 });
+

@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
-import { syncDevelopmentPushRegistration } from '../notifications/syncPushRegistration';
+import { clearPushRegistrationCache, syncPushRegistration } from '../notifications/syncPushRegistration';
 import { AuthResponse, UserSummary } from '../types';
 
 const ACCESS_TOKEN_KEY = 'fixcart_access_token';
@@ -43,7 +43,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       SecureStore.setItemAsync(USER_KEY, JSON.stringify(auth.user)),
     ]);
     set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken, user: auth.user });
-    await syncDevelopmentPushRegistration(auth.accessToken, auth.user.id);
+    await syncPushRegistration(auth.accessToken, auth.user.id);
   },
   signOut: async () => {
     await Promise.all([
@@ -54,3 +54,4 @@ export const useSessionStore = create<SessionState>((set) => ({
     set({ accessToken: null, refreshToken: null, user: null, hydrated: true });
   },
 }));
+

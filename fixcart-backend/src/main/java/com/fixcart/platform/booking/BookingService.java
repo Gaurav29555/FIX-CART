@@ -3,6 +3,7 @@ package com.fixcart.platform.booking;
 import com.fixcart.platform.auth.User;
 import com.fixcart.platform.auth.UserRepository;
 import com.fixcart.platform.auth.UserRole;
+import com.fixcart.platform.category.CategoryCodeResolver;
 import com.fixcart.platform.category.ServiceCategory;
 import com.fixcart.platform.category.ServiceCategoryRepository;
 import com.fixcart.platform.chat.ChatService;
@@ -29,6 +30,7 @@ public class BookingService {
     private final BookingStatusHistoryRepository historyRepository;
     private final UserRepository userRepository;
     private final ServiceCategoryRepository categoryRepository;
+    private final CategoryCodeResolver categoryCodeResolver;
     private final WorkerProfileRepository workerProfileRepository;
     private final RecommendationService recommendationService;
     private final WorkerService workerService;
@@ -41,6 +43,7 @@ public class BookingService {
             BookingStatusHistoryRepository historyRepository,
             UserRepository userRepository,
             ServiceCategoryRepository categoryRepository,
+            CategoryCodeResolver categoryCodeResolver,
             WorkerProfileRepository workerProfileRepository,
             RecommendationService recommendationService,
             WorkerService workerService,
@@ -52,6 +55,7 @@ public class BookingService {
         this.historyRepository = historyRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
+        this.categoryCodeResolver = categoryCodeResolver;
         this.workerProfileRepository = workerProfileRepository;
         this.recommendationService = recommendationService;
         this.workerService = workerService;
@@ -66,8 +70,7 @@ public class BookingService {
         if (customer.getRole() != UserRole.CUSTOMER) {
             throw new IllegalStateException("Only customers can create bookings");
         }
-        ServiceCategory category = categoryRepository.findByCodeIgnoreCase(request.categoryCode())
-                .orElseThrow(() -> new EntityNotFoundException("Service category not found"));
+        ServiceCategory category = categoryCodeResolver.requireCategory(request.categoryCode());
 
         BookingRequestEntity booking = new BookingRequestEntity();
         booking.setCustomer(customer);
@@ -83,9 +86,10 @@ public class BookingService {
         booking.setUrgency(request.urgency());
         booking.setStatus(BookingStatus.BROADCASTED);
 
+        String resolvedCategoryCode = category.getCode();
         List<WorkerProfile> candidates = workerProfileRepository.findByAvailableTrue().stream()
                 .filter(worker -> worker.getPrimaryCategory() != null
-                        && worker.getPrimaryCategory().getCode().equalsIgnoreCase(request.categoryCode()))
+                        && worker.getPrimaryCategory().getCode().equalsIgnoreCase(resolvedCategoryCode))
                 .filter(worker -> worker.getLatitude() != null && worker.getLongitude() != null)
                 .toList();
         BookingRequestEntity saved = bookingRepository.save(booking);

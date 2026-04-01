@@ -1,26 +1,40 @@
-﻿{
-    "expo":  {
-                 "name":  "FixCart Mobile",
-                 "slug":  "fixcart-mobile",
-                 "version":  "1.0.0",
-                 "orientation":  "portrait",
-                 "userInterfaceStyle":  "light",
-                 "runtimeVersion":  {
-                                        "policy":  "appVersion"
-                                    },
-                 "updates":  {
-                                 "fallbackToCacheTimeout":  0
-                             },
-                 "splash":  {
-                                "resizeMode":  "contain",
-                                "backgroundColor":  "#F4EFE6"
-                            },
-                 "assetBundlePatterns":  [
-                                             "**/*"
-                                         ],
-                 "android":  {
-                                 "package":  "com.fixcart.mobile"
-                             },
-                 "backgroundColor":  "#F4EFE6"
-             }
+{
+  "expo": {
+    "name": "FixCart Mobile",
+    "slug": "fixcart-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "fixcart",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#F4EFE6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-notifications"
+    ],
+    "android": {
+      "package": "com.fixcart.mobile",
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "backgroundColor": "#F4EFE6",
+    "extra": {
+      "eas": {
+        "projectId": "0ba30476-7935-4efe-b17c-bfdaf4a68060"
+      }
+    }
+  }
 }

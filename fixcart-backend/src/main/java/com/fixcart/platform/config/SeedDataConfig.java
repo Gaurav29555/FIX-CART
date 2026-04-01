@@ -26,17 +26,20 @@ public class SeedDataConfig {
     @Bean
     CommandLineRunner seedCategories(ServiceCategoryRepository categoryRepository) {
         return args -> {
-            if (categoryRepository.count() > 0) {
-                return;
-            }
             List<ServiceCategory> categories = List.of(
                     category("PLUMBING", "Plumbing", "wrench"),
                     category("ELECTRICAL", "Electrical", "bolt"),
+                    category("CARPENTRY", "Carpentry", "hammer"),
                     category("CLEANING", "Cleaning", "sparkles"),
                     category("PAINTING", "Painting", "paintbrush"),
+                    category("HANDYMAN", "Handyman", "toolbox"),
+                    category("GARDENING", "Gardening", "leaf"),
                     category("APPLIANCE", "Appliance Repair", "settings")
             );
-            categoryRepository.saveAll(categories);
+            for (ServiceCategory candidate : categories) {
+                categoryRepository.findByCodeIgnoreCase(candidate.getCode())
+                        .orElseGet(() -> categoryRepository.save(candidate));
+            }
         };
     }
 
