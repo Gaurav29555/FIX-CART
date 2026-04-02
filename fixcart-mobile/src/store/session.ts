@@ -43,7 +43,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       SecureStore.setItemAsync(USER_KEY, JSON.stringify(auth.user)),
     ]);
     set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken, user: auth.user });
-    await syncPushRegistration(auth.accessToken, auth.user.id);
+    void syncPushRegistration(auth.accessToken, auth.user.id);
   },
   signOut: async () => {
     await Promise.all([
@@ -54,4 +54,6 @@ export const useSessionStore = create<SessionState>((set) => ({
     set({ accessToken: null, refreshToken: null, user: null, hydrated: true });
   },
 }));
+
+
 

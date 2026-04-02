@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { initializeErrorReporting, withErrorBoundary } from './src/monitoring/errorReporter';
 import { configureNotifications, syncPushRegistration } from './src/notifications/syncPushRegistration';
@@ -169,8 +170,17 @@ function orderedCategories(categories?: Category[]) {
   });
 }
 
-function openDirections(latitude: number, longitude: number, errorMessage: string) {
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+function openDirections(destination: { latitude?: number | null; longitude?: number | null; address?: string | null }, errorMessage: string) {
+  const address = destination.address?.trim();
+  const hasCoords = typeof destination.latitude === 'number' && typeof destination.longitude === 'number';
+  if (!address && !hasCoords) {
+    Alert.alert(errorMessage);
+    return Promise.resolve();
+  }
+  const target = address
+    ? encodeURIComponent(address)
+    : `${destination.latitude},${destination.longitude}`;
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${target}&travelmode=driving`;
   return Linking.openURL(url).catch(() => Alert.alert(errorMessage));
 }
 
@@ -505,7 +515,7 @@ function NearbyWorkersMap({ workers, selectedWorkerId, onSelectWorker, savedWork
       {selectedWorker ? (
         <>
           <WorkerCardView worker={selectedWorker} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(selectedWorker.workerId)} onToggleSaved={() => onToggleSaved(selectedWorker.workerId)} />
-          <ActionButton title={t('openDirections')} onPress={() => void openDirections(selectedWorker.latitude, selectedWorker.longitude, t('mapUnavailable'))} kind="secondary" />
+          <ActionButton title={t('openDirections')} onPress={() => void openDirections({ latitude: selectedWorker.latitude, longitude: selectedWorker.longitude }, t('mapUnavailable'))} kind="secondary" />
         </>
       ) : null}
     </View>
@@ -573,6 +583,7 @@ function ChatPanel({ token, bookingId, t, language }: { token: string; bookingId
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [assistantReply, setAssistantReply] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
   const roomQuery = useQuery({ queryKey: ['chat', bookingId], queryFn: () => api.chatRoom(token, bookingId), refetchInterval: REFRESH_INTERVAL_MS });
   const sendMutation = useMutation({
     mutationFn: async () => api.sendMessage(token, bookingId, message),
@@ -584,11 +595,14 @@ function ChatPanel({ token, bookingId, t, language }: { token: string; bookingId
     onSuccess: (response) => { setAssistantReply(response.answer || t('noAiReply')); },
     onError: (error: Error) => Alert.alert(t('askAi'), error.message),
   });
+  useEffect(() => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, [roomQuery.data?.messages.length, assistantReply]);
   if (roomQuery.isLoading) return <ActivityIndicator color={THEME.teal} />;
   if (roomQuery.isError) return <Text style={styles.errorText}>{t('chatUnavailable')}</Text>;
   return (
     <View style={styles.chatPanel}>
-      <View style={styles.chatMessages}>
+      <ScrollView ref={scrollRef} style={styles.chatMessages} contentContainerStyle={styles.chatMessagesContent} keyboardShouldPersistTaps="handled">
         {roomQuery.data?.messages.length ? roomQuery.data.messages.map((item) => (
           <View key={item.id} style={styles.chatBubble}>
             <Text style={styles.chatSender}>{item.senderName}</Text>
@@ -596,7 +610,7 @@ function ChatPanel({ token, bookingId, t, language }: { token: string; bookingId
             <Text style={styles.timelineMeta}>{formatDate(item.sentAt, language)}</Text>
           </View>
         )) : <SectionHint>{t('noMessagesYet')}</SectionHint>}
-      </View>
+      </ScrollView>
       <TextInput style={[styles.input, styles.chatInput]} value={message} onChangeText={setMessage} placeholder={t('message')} placeholderTextColor={THEME.muted} multiline />
       <View style={styles.actionRow}>
         <ActionButton title={sendMutation.isPending ? t('sending') : t('send')} onPress={() => sendMutation.mutate()} disabled={!message.trim() || sendMutation.isPending} />
@@ -642,7 +656,7 @@ function RoutePreview({ booking, t, language }: { booking: Booking; t: (key: Tra
           <Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(booking.preferredTime, language)}</Text>
         </View>
       )}
-      <ActionButton title={t('openDirections')} onPress={() => void openDirections(booking.latitude, booking.longitude, t('mapUnavailable'))} />
+      <ActionButton title={t('openDirections')} onPress={() => void openDirections({ latitude: booking.latitude, longitude: booking.longitude, address: booking.address }, t('mapUnavailable'))} />
     </View>
   );
 }
@@ -657,6 +671,7 @@ function CustomerDashboard() {
   const [budget, setBudget] = useState('700');
   const [duration, setDuration] = useState('2');
   const [address, setAddress] = useState('Andheri East, Mumbai');
+  const [requestCoords, setRequestCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [reviewComment, setReviewComment] = useState('Fast and reliable service.');
@@ -678,9 +693,36 @@ function CustomerDashboard() {
   }, [workers]);
 
   const createBookingMutation = useMutation({
-    mutationFn: () => api.createBooking(token, { categoryCode: selectedCategory, title, description, budget: Number(budget), expectedDurationHours: Number(duration), preferredTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), address, latitude: 19.076, longitude: 72.8777, urgency: 'HIGH' }),
+    mutationFn: () => api.createBooking(token, { categoryCode: selectedCategory, title, description, budget: Number(budget), expectedDurationHours: Number(duration), preferredTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), address, latitude: requestCoords?.latitude ?? 19.076, longitude: requestCoords?.longitude ?? 72.8777, urgency: 'HIGH' }),
     onSuccess: async (booking) => { setSelectedBookingId(booking.bookingId); await queryClient.invalidateQueries({ queryKey: ['customer-bookings'] }); Alert.alert(t('requestCreatedTitle'), t('requestCreatedBody')); },
     onError: (error: Error) => Alert.alert(t('createBookingFailed'), error.message),
+  });
+  const detectLocationMutation = useMutation({
+    mutationFn: async () => {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        throw new Error(t('locationPermissionDenied'));
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      let detectedAddress = '';
+      try {
+        const places = await Location.reverseGeocodeAsync(coords);
+        const place = places[0];
+        if (place) {
+          detectedAddress = [place.name, place.street, place.city, place.region, place.postalCode].filter(Boolean).join(', ');
+        }
+      } catch {}
+      return { ...coords, detectedAddress };
+    },
+    onSuccess: ({ latitude, longitude, detectedAddress }) => {
+      setRequestCoords({ latitude, longitude });
+      if (detectedAddress) {
+        setAddress(detectedAddress);
+      }
+      Alert.alert(t('useCurrentLocation'), detectedAddress || t('locationDetected'));
+    },
+    onError: (error: Error) => Alert.alert(t('locationFailed'), error.message || t('locationFailed')),
   });
   const updateStatusMutation = useMutation({ mutationFn: ({ bookingId, status }: { bookingId: string; status: BookingStatus }) => api.updateBookingStatus(token, bookingId, status), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['customer-bookings'] }); }, onError: (error: Error) => Alert.alert(t('statusUpdateFailed'), error.message) });
   const saveWorkerMutation = useMutation({ mutationFn: (workerId: string) => api.saveWorker(token, workerId), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['saved-workers'] }); } });
@@ -710,6 +752,7 @@ function CustomerDashboard() {
     setBudget(String(booking.budget));
     setDuration(String(booking.expectedDurationHours));
     setAddress(booking.address);
+    setRequestCoords({ latitude: booking.latitude, longitude: booking.longitude });
     Alert.alert(t('rebookingReadyTitle'), t('rebookingReadyBody'));
   };
 
@@ -726,7 +769,7 @@ function CustomerDashboard() {
         <AnimatedSection delay={160}><Section title={t('savedWorkersTitle')}>{savedWorkersVisible.length ? savedWorkersVisible.map((worker) => <WorkerCardView key={worker.workerId} worker={worker} language={language} currency={currency} t={t} isSaved onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} />) : <SectionHint>{t('savedWorkersHint')}</SectionHint>}</Section></AnimatedSection>
         <AnimatedSection delay={190}><Section title={t('nearbyWorkersMap')}><SectionHint>{t('nearbyWorkersMapHint')}</SectionHint><QueryFeedback loading={workersQuery.isLoading} error={workersQuery.isError} emptyMessage={t('nearbyWorkersListHint')} /><NearbyWorkersMap workers={workers} selectedWorkerId={selectedWorkerId} onSelectWorker={setSelectedWorkerId} savedWorkerIds={savedWorkerIds} onToggleSaved={handleToggleSavedWorker} language={language} currency={currency} t={t} /></Section></AnimatedSection>
         <AnimatedSection delay={220}><Section title={t('nearbyWorkers')}><SectionHint>{t('nearbyWorkersListHint')}</SectionHint><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRail}>{workers.map((worker) => <TouchableOpacity key={worker.workerId} style={[styles.horizontalCard, selectedWorkerId === worker.workerId && styles.horizontalCardSelected]} onPress={() => setSelectedWorkerId(worker.workerId)} activeOpacity={0.9}><WorkerCardView worker={worker} language={language} currency={currency} t={t} isSaved={savedWorkerIds.has(worker.workerId)} onToggleSaved={() => handleToggleSavedWorker(worker.workerId)} /></TouchableOpacity>)}</ScrollView></Section></AnimatedSection>
-        <AnimatedSection delay={250}><Section title={t('createServiceRequest')}><Text style={styles.label}>{t('category')}</Text><CategoryGrid categories={categories} selectedCode={selectedCategory} onSelect={setSelectedCategory} language={language} /><TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('jobTitle')} placeholderTextColor={THEME.muted} returnKeyType="next" /><TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder={t('describeIssue')} placeholderTextColor={THEME.muted} multiline /><View style={styles.actionRow}><ActionButton title={improveJobMutation.isPending ? t('aiWorking') : t('improveWithAi')} onPress={() => improveJobMutation.mutate()} disabled={improveJobMutation.isPending || !title.trim() || !description.trim()} kind="secondary" /><ActionButton title={smartQuoteMutation.isPending ? t('aiWorking') : t('suggestBudget')} onPress={() => smartQuoteMutation.mutate()} disabled={smartQuoteMutation.isPending || !title.trim() || !description.trim()} kind="secondary" /></View><View style={styles.compactFieldRow}><TextInput style={[styles.input, styles.compactField]} value={budget} onChangeText={setBudget} placeholder={`${t('budget')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /><TextInput style={[styles.input, styles.compactField]} value={duration} onChangeText={setDuration} placeholder={t('expectedHours')} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /></View><TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder={t('address')} placeholderTextColor={THEME.muted} /><ActionButton title={createBookingMutation.isPending ? t('broadcasting') : t('broadcastRequest')} onPress={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending} /></Section></AnimatedSection>
+        <AnimatedSection delay={250}><Section title={t('createServiceRequest')}><Text style={styles.label}>{t('category')}</Text><CategoryGrid categories={categories} selectedCode={selectedCategory} onSelect={setSelectedCategory} language={language} /><TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('jobTitle')} placeholderTextColor={THEME.muted} returnKeyType="next" /><TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder={t('describeIssue')} placeholderTextColor={THEME.muted} multiline /><View style={styles.actionRow}><ActionButton title={improveJobMutation.isPending ? t('aiWorking') : t('improveWithAi')} onPress={() => improveJobMutation.mutate()} disabled={improveJobMutation.isPending || !title.trim() || !description.trim()} kind="secondary" /><ActionButton title={smartQuoteMutation.isPending ? t('aiWorking') : t('suggestBudget')} onPress={() => smartQuoteMutation.mutate()} disabled={smartQuoteMutation.isPending || !title.trim() || !description.trim()} kind="secondary" /></View><View style={styles.compactFieldRow}><TextInput style={[styles.input, styles.compactField]} value={budget} onChangeText={setBudget} placeholder={`${t('budget')} (${currency})`} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /><TextInput style={[styles.input, styles.compactField]} value={duration} onChangeText={setDuration} placeholder={t('expectedHours')} placeholderTextColor={THEME.muted} keyboardType="numeric" returnKeyType="next" /></View><TextInput style={styles.input} value={address} onChangeText={(value) => { setAddress(value); setRequestCoords(null); }} placeholder={t('address')} placeholderTextColor={THEME.muted} /><View style={styles.actionRow}><ActionButton title={detectLocationMutation.isPending ? t('aiWorking') : t('useCurrentLocation')} onPress={() => detectLocationMutation.mutate()} disabled={detectLocationMutation.isPending} kind="secondary" /><ActionButton title={createBookingMutation.isPending ? t('broadcasting') : t('broadcastRequest')} onPress={() => createBookingMutation.mutate()} disabled={createBookingMutation.isPending} /></View></Section></AnimatedSection>
         <AnimatedSection delay={280}><Section title={t('myBookings')}>{bookings.length ? bookings.map((booking) => <BookingCard key={booking.bookingId} booking={booking} language={language} currency={currency} t={t} onSelect={() => setSelectedBookingId(booking.bookingId)} onChat={booking.workerId ? () => setSelectedBookingId(booking.bookingId) : undefined} onReview={booking.status === 'COMPLETED' ? () => setSelectedBookingId(booking.bookingId) : undefined} onRebook={booking.status === 'COMPLETED' ? () => handleRebook(booking) : undefined} />) : <SectionHint>{t('noBookingsYet')}</SectionHint>}</Section></AnimatedSection>
         {selectedBooking ? <AnimatedSection delay={310}><Section title={t('selectedBookingDetails')}><Text style={styles.cardTitle}>{selectedBooking.title}</Text><Text style={styles.cardMeta}>{formatStatus(selectedBooking.status, language)}</Text><Text style={styles.cardBody}>{selectedBooking.description}</Text><Text style={styles.cardMeta}>{t('preferredTime')}: {formatDate(selectedBooking.preferredTime, language)}</Text><Text style={styles.cardMeta}>{t('budget')}: {formatCurrency(selectedBooking.budget, language, currency, t)}</Text>{selectedBooking.workerName ? <Text style={styles.cardMeta}>{t('workerLabel')}: {selectedBooking.workerName}</Text> : null}<SectionHint>{t('customerActionsHint')}</SectionHint><BookingActions actions={selectedActions} language={language} t={t} onStatus={(status) => updateStatusMutation.mutate({ bookingId: selectedBooking.bookingId, status })} /><Text style={styles.subTitle}>{t('statusHistory')}</Text><StatusTimeline booking={selectedBooking} language={language} /></Section></AnimatedSection> : null}
         {selectedBooking?.workerId ? <AnimatedSection delay={340}><Section title={`${t('chat')}: ${selectedBooking.title}`}><ChatPanel token={token} bookingId={selectedBooking.bookingId} t={t} language={language} /></Section></AnimatedSection> : null}
@@ -923,7 +966,8 @@ const styles = StyleSheet.create({
   ratingChipText: { color: THEME.ink, fontWeight: '800' },
   reviewCard: { backgroundColor: '#FFF4E6', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: THEME.amberSoft },
   chatPanel: { gap: 10 },
-  chatMessages: { maxHeight: 280 },
+  chatMessages: { maxHeight: 280, borderRadius: 16, backgroundColor: THEME.bgSoft, paddingHorizontal: 8, paddingTop: 8 },
+  chatMessagesContent: { paddingBottom: 6 },
   chatBubble: { backgroundColor: '#FFF4E6', borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: THEME.border },
   chatSender: { color: THEME.ink, fontWeight: '800', marginBottom: 2 },
   chatInput: { minHeight: 58, maxHeight: 120 },
@@ -935,6 +979,12 @@ const styles = StyleSheet.create({
   routeMap: { width: '100%', height: 210 },
   errorText: { color: THEME.danger },
 });
+
+
+
+
+
+
 
 
 
