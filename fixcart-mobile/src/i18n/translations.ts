@@ -4,11 +4,11 @@ export type LanguageCode = 'en' | 'hi' | 'mr' | 'te' | 'ta' | 'gu';
 
 export const LANGUAGE_OPTIONS: Array<{ code: LanguageCode; label: string }> = [
   { code: 'en', label: 'English' },
-  { code: 'hi', label: 'हिन्दी' },
-  { code: 'mr', label: 'मराठी' },
-  { code: 'te', label: 'తెలుగు' },
-  { code: 'ta', label: 'தமிழ்' },
-  { code: 'gu', label: 'ગુજરાતી' },
+  { code: 'hi', label: '\u0939\u093F\u0928\u094D\u0926\u0940' },
+  { code: 'mr', label: '\u092E\u0930\u093E\u0920\u0940' },
+  { code: 'te', label: '\u0C24\u0C46\u0C32\u0C41\u0C17\u0C41' },
+  { code: 'ta', label: '\u0BA4\u0BAE\u0BBF\u0BB4\u0BCD' },
+  { code: 'gu', label: '\u0A97\u0AC1\u0A9C\u0AB0\u0ABE\u0AA4\u0AC0' },
 ];
 
 export const LOCALE_MAP: Record<LanguageCode, string> = {
@@ -160,6 +160,11 @@ const en = {
   smartQuote: 'Smart quote',
   aiChecklist: 'AI checklist',
   noAiReply: 'No AI reply yet.',
+  invalidEmail: 'Enter a valid email address.',
+  invalidPassword: 'Password must be at least 8 characters.',
+  invalidPhone: 'Enter a valid 10-digit phone number.',
+  missingName: 'Enter your first and last name.',
+  authBusy: 'Please wait while we finish your request.',
   connected: 'connected',
   connecting: 'connecting',
   reconnecting: 'reconnecting',
@@ -783,3 +788,6 @@ export const statusLabels: Record<LanguageCode, Record<BookingStatus, string>> =
     CANCELLED: 'રદ થયું',
   },
 };
+
+
+

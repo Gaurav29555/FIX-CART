@@ -8,6 +8,18 @@ spring:
     url: ${JDBC_DATABASE_URL:${DATABASE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fixcart_platform}}}
     username: ${DB_USERNAME:${POSTGRES_USER:postgres}}
     password: ${DB_PASSWORD:${POSTGRES_PASSWORD:postgres}}
+    hikari:
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:5000}
+      initialization-fail-timeout: ${DB_INITIALIZATION_FAIL_TIMEOUT_MS:60000}
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:5}
+      minimum-idle: ${DB_MIN_IDLE:0}
+      keepalive-time: ${DB_KEEPALIVE_TIME_MS:300000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:900000}
+      data-source-properties:
+        connectTimeout: ${DB_CONNECT_TIMEOUT_SECONDS:30}
+        socketTimeout: ${DB_SOCKET_TIMEOUT_SECONDS:30}
+        tcpKeepAlive: true
   jpa:
     hibernate:
       ddl-auto: validate
@@ -17,6 +29,7 @@ spring:
         format_sql: true
   flyway:
     enabled: true
+    connect-retries: ${FLYWAY_CONNECT_RETRIES:10}
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -66,4 +79,8 @@ app:
 logging:
   level:
     com.fixcart.platform: INFO
+
+
+
+
 

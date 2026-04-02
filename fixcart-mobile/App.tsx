@@ -37,13 +37,14 @@ const ENABLE_NATIVE_MAPS = process.env.EXPO_PUBLIC_ENABLE_NATIVE_MAPS === 'true'
 const KEYBOARD_BEHAVIOR = Platform.OS === 'ios' ? 'padding' : 'height';
 const KEYBOARD_VERTICAL_OFFSET = Platform.OS === 'ios' ? 0 : 20;
 const CATEGORY_FALLBACKS: Category[] = [
-  { id: 'plumbing', code: 'PLUMBING', name: 'Plumbing', icon: '🔧' },
-  { id: 'electrical', code: 'ELECTRICAL', name: 'Electrical', icon: '💡' },
-  { id: 'carpentry', code: 'CARPENTRY', name: 'Carpentry', icon: '🪵' },
-  { id: 'painting', code: 'PAINTING', name: 'Painting', icon: '🎨' },
-  { id: 'cleaning', code: 'CLEANING', name: 'Cleaning', icon: '🧼' },
-  { id: 'handyman', code: 'HANDYMAN', name: 'Handyman', icon: '🪚' },
-  { id: 'gardening', code: 'GARDENING', name: 'Gardening', icon: '🌿' },
+  { id: 'plumbing', code: 'PLUMBING', name: 'Plumbing', icon: '\u{1F527}' },
+  { id: 'electrical', code: 'ELECTRICAL', name: 'Electrical', icon: '\u26A1' },
+  { id: 'carpentry', code: 'CARPENTRY', name: 'Carpentry', icon: '\u{1FA9A}' },
+  { id: 'painting', code: 'PAINTING', name: 'Painting', icon: '\u{1F58C}' },
+  { id: 'cleaning', code: 'CLEANING', name: 'Cleaning', icon: '\u2728' },
+  { id: 'handyman', code: 'HANDYMAN', name: 'Handyman', icon: '\u{1F9F0}' },
+  { id: 'gardening', code: 'GARDENING', name: 'Gardening', icon: '\u{1F331}' },
+  { id: 'appliance', code: 'APPLIANCE', name: 'Appliance', icon: '\u{1F50C}' },
 ];
 const CATEGORY_ORDER = CATEGORY_FALLBACKS.map((category) => category.code);
 const CURRENCY_OPTIONS: Array<{ code: CurrencyCode; label: string }> = [
@@ -73,13 +74,14 @@ const THEME = {
 const WORKER_STATUS_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = { ACCEPTED: ['ON_THE_WAY'], CONFIRMED: ['ON_THE_WAY'], ON_THE_WAY: ['ARRIVED'], ARRIVED: ['IN_PROGRESS'] };
 const CUSTOMER_STATUS_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = { ACCEPTED: ['CONFIRMED'], ARRIVED: ['COMPLETED'], IN_PROGRESS: ['COMPLETED'] };
 const CATEGORY_LABELS: Record<string, Record<LanguageCode, string>> = {
-  PLUMBING: { en: 'Plumbing', hi: 'à¤ªà¥à¤²à¤‚à¤¬à¤¿à¤‚à¤—', mr: 'à¤ªà¥à¤²à¤‚à¤¬à¤¿à¤‚à¤—', te: 'à°ªà±à°²à°‚à°¬à°¿à°‚à°—à±', ta: 'à®ªà®¿à®³à®®à¯à®ªà®¿à®™à¯', gu: 'àªªà«àª²àª‚àª¬àª¿àª‚àª—' },
-  ELECTRICAL: { en: 'Electrical', hi: 'à¤‡à¤²à¥‡à¤•à¥à¤Ÿà¥à¤°à¤¿à¤•à¤²', mr: 'à¤‡à¤²à¥‡à¤•à¥à¤Ÿà¥à¤°à¤¿à¤•à¤²', te: 'à°Žà°²à°•à±à°Ÿà±à°°à°¿à°•à°²à±', ta: 'à®Žà®²à®•à¯à®Ÿà¯à®°à®¿à®•à¯à®•à®²à¯', gu: 'àª‡àª²à«‡àª•à«àªŸà«àª°àª¿àª•àª²' },
-  CARPENTRY: { en: 'Carpentry', hi: 'à¤¬à¤¢à¤¼à¤ˆ à¤•à¤¾ à¤•à¤¾à¤®', mr: 'à¤¸à¥à¤¤à¤¾à¤°à¤•à¤¾à¤®', te: 'à°•à°¾à°°à±à°ªà±†à°‚à°Ÿà±à°°à±€', ta: 'à®¤à®šà¯à®šà¯ à®ªà®£à®¿', gu: 'àª¸à«àª¤àª¾àª°àª•àª¾àª®' },
-  PAINTING: { en: 'Painting', hi: 'à¤ªà¥‡à¤‚à¤Ÿà¤¿à¤‚à¤—', mr: 'à¤ªà¥‡à¤‚à¤Ÿà¤¿à¤‚à¤—', te: 'à°ªà±†à°¯à°¿à°‚à°Ÿà°¿à°‚à°—à±', ta: 'à®ªà¯†à®¯à®¿à®£à¯à®Ÿà®¿à®™à¯', gu: 'àªªà«‡àª‡àª¨à«àªŸàª¿àª‚àª—' },
-  CLEANING: { en: 'Cleaning', hi: 'à¤¸à¤«à¤¾à¤ˆ', mr: 'à¤¸à¥à¤µà¤šà¥à¤›à¤¤à¤¾', te: 'à°¶à±à°­à±à°°à°ªà°°à°šà°¡à°‚', ta: 'à®šà¯à®¤à¯à®¤à®®à¯', gu: 'àª¸àª«àª¾àªˆ' },
-  HANDYMAN: { en: 'Handyman', hi: 'à¤¹à¥ˆà¤‚à¤¡à¥€à¤®à¥ˆà¤¨', mr: 'à¤¹à¤à¤¡à¥€à¤®à¥…à¤¨', te: 'à°¹à±à°¯à°¾à°‚à°¡à±€à°®à±à°¯à°¾à°¨à±', ta: 'à®¹à¯‡à®£à¯à®Ÿà®¿à®®à¯‡à®©à¯', gu: 'àª¹à«‡àª¨à«àª¡à«€àª®à«‡àª¨' },
-  GARDENING: { en: 'Gardening', hi: 'à¤¬à¤¾à¤—à¤µà¤¾à¤¨à¥€', mr: 'à¤¬à¤¾à¤—à¤•à¤¾à¤®', te: 'à°¤à±‹à°Ÿà°ªà°¨à°¿', ta: 'à®¤à¯‹à®Ÿà¯à®Ÿà®ªà¯à®ªà®£à®¿', gu: 'àª¬àª¾àª—àª¬àª—à«€àªšà«‹' },
+  PLUMBING: { en: 'Plumbing', hi: '\u092A\u094D\u0932\u0902\u092C\u093F\u0902\u0917', mr: '\u092A\u094D\u0932\u0902\u092C\u093F\u0902\u0917', te: '\u0C2A\u0C4D\u0C32\u0C02\u0C2C\u0C3F\u0C02\u0C17\u0C4D', ta: '\u0BAA\u0BBF\u0BB3\u0BAE\u0BCD\u0BAA\u0BBF\u0B99\u0BCD', gu: '\u0AAA\u0ACD\u0AB2\u0A82\u0AAC\u0ABF\u0A82\u0A97' },
+  ELECTRICAL: { en: 'Electrical', hi: '\u0907\u0932\u0947\u0915\u094D\u091F\u094D\u0930\u093F\u0915\u0932', mr: '\u0907\u0932\u0947\u0915\u094D\u091F\u094D\u0930\u093F\u0915\u0932', te: '\u0C0E\u0C32\u0C46\u0C15\u0C4D\u0C1F\u0C4D\u0C30\u0C3F\u0C15\u0C32\u0C4D', ta: '\u0BAE\u0BBF\u0BA9\u0BCD\u0BA9\u0BA3\u0BC1', gu: '\u0A87\u0AB2\u0AC7\u0A95\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A95\u0AB2' },
+  CARPENTRY: { en: 'Carpentry', hi: '\u092C\u0922\u093C\u0908 \u0915\u093E \u0915\u093E\u092E', mr: '\u0938\u0941\u0924\u093E\u0930\u0915\u093E\u092E', te: '\u0C15\u0C3E\u0C30\u0C4D\u0C2A\u0C46\u0C02\u0C1F\u0C4D\u0C30\u0C40', ta: '\u0BA4\u0B9A\u0BCD\u0B9A\u0BC1 \u0BAA\u0BA3\u0BBF', gu: '\u0AB8\u0AC1\u0AA4\u0ABE\u0AB0\u0A95\u0ABE\u0AAE' },
+  PAINTING: { en: 'Painting', hi: '\u092A\u0947\u0902\u091F\u093F\u0902\u0917', mr: '\u092A\u0947\u0902\u091F\u093F\u0902\u0917', te: '\u0C2A\u0C46\u0C2F\u0C3F\u0C02\u0C1F\u0C3F\u0C02\u0C17\u0C4D', ta: '\u0BAA\u0BC7\u0BAF\u0BBF\u0BA3\u0BCD\u0B9F\u0BBF\u0B99\u0BCD', gu: '\u0AAA\u0AC7\u0A87\u0AA8\u0ACD\u0A9F\u0ABF\u0A82\u0A97' },
+  CLEANING: { en: 'Cleaning', hi: '\u0938\u092B\u093E\u0908', mr: '\u0938\u094D\u0935\u091A\u094D\u091B\u0924\u093E', te: '\u0C36\u0C41\u0C2D\u0C4D\u0C30\u0C2A\u0C30\u0C1A\u0C21\u0C02', ta: '\u0B9A\u0BC1\u0BA4\u0BCD\u0BA4\u0BAE\u0BCD', gu: '\u0AB8\u0AAB\u0ABE\u0A88' },
+  HANDYMAN: { en: 'Handyman', hi: '\u0939\u0948\u0902\u0921\u0940\u092E\u0948\u0928', mr: '\u0939\u0901\u0921\u0940\u092E\u0945\u0928', te: '\u0C39\u0C4D\u0C2F\u0C3E\u0C02\u0C21\u0C40\u0C2E\u0C4D\u0C2F\u0C3E\u0C28\u0C4D', ta: '\u0BB9\u0BC7\u0BA3\u0BCD\u0B9F\u0BBF\u0BAE\u0BC7\u0BA9\u0BCD', gu: '\u0AB9\u0AC7\u0AA8\u0ACD\u0AA1\u0AC0\u0AAE\u0AC7\u0AA8' },
+  GARDENING: { en: 'Gardening', hi: '\u092C\u093E\u0917\u0935\u093E\u0928\u0940', mr: '\u092C\u093E\u0917\u0915\u093E\u092E', te: '\u0C24\u0C4B\u0C1F\u0C2A\u0C28\u0C3F', ta: '\u0BA4\u0BCB\u0B9F\u0BCD\u0B9F\u0BAA\u0BCD\u0BAA\u0BA3\u0BBF', gu: '\u0AAC\u0ABE\u0A97\u0AAC\u0A97\u0AC0\u0A9A\u0ACB' },
+  APPLIANCE: { en: 'Appliance', hi: '\u0909\u092A\u0915\u0930\u0923', mr: '\u0909\u092A\u0915\u0930\u0923', te: '\u0C09\u0C2A\u0C15\u0C30\u0C23\u0C02', ta: '\u0B89\u0BAA\u0B95\u0BB0\u0BA3\u0BAE\u0BCD', gu: '\u0A89\u0AAA\u0A95\u0AB0\u0AA3' },
 };
 
 function useI18n() {
@@ -105,7 +107,16 @@ function formatCurrency(value: number | null | undefined, language: LanguageCode
 }
 
 function formatDate(date: string, language: LanguageCode) {
-  return new Date(date).toLocaleString(LOCALE_MAP[language]);
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  try {
+    return new Intl.DateTimeFormat(LOCALE_MAP[language], {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(parsed);
+  } catch {
+    return parsed.toLocaleString(LOCALE_MAP[language]);
+  }
 }
 
 function formatStatus(status: BookingStatus, language: LanguageCode) {
@@ -122,8 +133,20 @@ function joinMeta(parts: Array<string | null | undefined>) {
 }
 
 function categoryIcon(category: Pick<Category, 'code' | 'icon'>) {
-  const fallback = CATEGORY_FALLBACKS.find((item) => item.code === category.code)?.icon ?? 'ðŸ§°';
-  return category.icon?.trim() || fallback;
+  const iconMap: Record<string, string> = {
+    wrench: '\u{1F527}',
+    bolt: '\u26A1',
+    hammer: '\u{1FA9A}',
+    paintbrush: '\u{1F58C}',
+    sparkles: '\u2728',
+    toolbox: '\u{1F9F0}',
+    leaf: '\u{1F331}',
+    settings: '\u{1F50C}',
+    appliance: '\u{1F50C}',
+  };
+  const rawIcon = category.icon?.trim();
+  const normalizedIcon = rawIcon ? iconMap[rawIcon.toLowerCase()] ?? rawIcon : null;
+  return normalizedIcon || CATEGORY_FALLBACKS.find((item) => item.code === category.code)?.icon || '\u{1F9F0}';
 }
 
 function orderedCategories(categories?: Category[]) {
@@ -136,7 +159,7 @@ function orderedCategories(categories?: Category[]) {
     merged.set(category.code, {
       ...fallback,
       ...category,
-      icon: category.icon?.trim() || fallback?.icon || '🧰',
+      icon: categoryIcon({ code: category.code, icon: category.icon }) || fallback?.icon || '\\u{1F9F0}',
     });
   });
   return [...merged.values()].sort((left, right) => {
@@ -324,21 +347,61 @@ function AuthScreen() {
   const toggleWorkerCategory = (code: string) => {
     setWorkerCategoryCodes((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
   };
-  const canSubmitRegister = !(mode === 'register' && role === 'WORKER' && workerCategoryCodes.length === 0);
-  const loginMutation = useMutation({ mutationFn: () => api.login({ email, password }), onSuccess: signIn, onError: (error: Error) => Alert.alert(t('loginFailed'), error.message) });
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedPhone = phone.replace(/\D/g, '');
+  const loginMutation = useMutation({ mutationFn: () => api.login({ email: normalizedEmail, password }), onSuccess: signIn, onError: (error: Error) => Alert.alert(t('loginFailed'), error.message) });
   const registerMutation = useMutation({
     mutationFn: () => api.register({
-      email,
+      email: normalizedEmail,
       password,
-      firstName,
-      lastName,
-      phone,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: normalizedPhone,
       role,
       serviceCategoryCode: role === 'WORKER' ? workerPrimaryCategoryCode : undefined,
     }),
     onSuccess: signIn,
     onError: (error: Error) => Alert.alert(t('registrationFailed'), error.message),
   });
+  const authBusy = loginMutation.isPending || registerMutation.isPending;
+  const canSubmitRegister = !(mode === 'register' && role === 'WORKER' && workerCategoryCodes.length === 0);
+  const validateAuthForm = () => {
+    if (authBusy) {
+      Alert.alert(t('loginFailed'), t('authBusy'));
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      Alert.alert(mode === 'login' ? t('loginFailed') : t('registrationFailed'), t('invalidEmail'));
+      return false;
+    }
+    if (password.trim().length < 8) {
+      Alert.alert(mode === 'login' ? t('loginFailed') : t('registrationFailed'), t('invalidPassword'));
+      return false;
+    }
+    if (mode === 'register') {
+      if (!firstName.trim() || !lastName.trim()) {
+        Alert.alert(t('registrationFailed'), t('missingName'));
+        return false;
+      }
+      if (normalizedPhone.length !== 10) {
+        Alert.alert(t('registrationFailed'), t('invalidPhone'));
+        return false;
+      }
+      if (role === 'WORKER' && workerCategoryCodes.length === 0) {
+        Alert.alert(t('registrationFailed'), t('workerCategoryHint'));
+        return false;
+      }
+    }
+    return true;
+  };
+  const handleAuthSubmit = () => {
+    if (!validateAuthForm()) return;
+    if (mode === 'login') {
+      loginMutation.mutate();
+      return;
+    }
+    registerMutation.mutate();
+  };
 
   return (
     <ScreenFrame contentContainerStyle={styles.authWrap}>
@@ -351,17 +414,17 @@ function AuthScreen() {
         <AnimatedSection delay={140}>
           <View style={styles.authCard}>
             <View style={styles.segmentRow}>
-              <TouchableOpacity style={[styles.segment, mode === 'login' && styles.segmentActive]} onPress={() => setMode('login')}><Text style={styles.segmentText}>{t('login')}</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.segment, mode === 'register' && styles.segmentActive]} onPress={() => setMode('register')}><Text style={styles.segmentText}>{t('register')}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.segment, mode === 'login' && styles.segmentActive]} onPress={() => setMode('login')} disabled={authBusy}><Text style={styles.segmentText}>{t('login')}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.segment, mode === 'register' && styles.segmentActive]} onPress={() => setMode('register')} disabled={authBusy}><Text style={styles.segmentText}>{t('register')}</Text></TouchableOpacity>
             </View>
             {mode === 'register' ? (
               <>
-                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder={t('firstName')} placeholderTextColor={THEME.muted} returnKeyType="next" />
-                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder={t('lastName')} placeholderTextColor={THEME.muted} returnKeyType="next" />
-                <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder={t('phone')} placeholderTextColor={THEME.muted} keyboardType="phone-pad" returnKeyType="next" />
+                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder={t('firstName')} placeholderTextColor={THEME.muted} returnKeyType="next" editable={!authBusy} maxLength={40} />
+                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder={t('lastName')} placeholderTextColor={THEME.muted} returnKeyType="next" editable={!authBusy} maxLength={40} />
+                <TextInput style={styles.input} value={phone} onChangeText={(value) => setPhone(value.replace(/\D/g, ''))} placeholder={t('phone')} placeholderTextColor={THEME.muted} keyboardType="phone-pad" returnKeyType="next" editable={!authBusy} maxLength={10} />
                 <View style={styles.segmentRow}>
-                  <TouchableOpacity style={[styles.segment, role === 'CUSTOMER' && styles.segmentActive]} onPress={() => setRole('CUSTOMER')}><Text style={styles.segmentText}>{t('customer')}</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.segment, role === 'WORKER' && styles.segmentActive]} onPress={() => setRole('WORKER')}><Text style={styles.segmentText}>{t('worker')}</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.segment, role === 'CUSTOMER' && styles.segmentActive]} onPress={() => setRole('CUSTOMER')} disabled={authBusy}><Text style={styles.segmentText}>{t('customer')}</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.segment, role === 'WORKER' && styles.segmentActive]} onPress={() => setRole('WORKER')} disabled={authBusy}><Text style={styles.segmentText}>{t('worker')}</Text></TouchableOpacity>
                 </View>
                 {role === 'WORKER' ? (
                   <View style={styles.workerCategoryBlock}>
@@ -372,10 +435,10 @@ function AuthScreen() {
                 ) : null}
               </>
             ) : null}
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder={t('email')} placeholderTextColor={THEME.muted} autoCapitalize="none" keyboardType="email-address" returnKeyType="next" />
-            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder={t('password')} placeholderTextColor={THEME.muted} secureTextEntry returnKeyType="done" />
-            <ActionButton title={mode === 'login' ? t('continue') : t('createAccount')} onPress={() => (mode === 'login' ? loginMutation.mutate() : registerMutation.mutate())} disabled={loginMutation.isPending || registerMutation.isPending || !canSubmitRegister} />
-            {(loginMutation.isPending || registerMutation.isPending) ? <ActivityIndicator style={styles.loader} color={THEME.teal} /> : null}
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder={t('email')} placeholderTextColor={THEME.muted} autoCapitalize="none" keyboardType="email-address" returnKeyType="next" editable={!authBusy} autoCorrect={false} />
+            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder={t('password')} placeholderTextColor={THEME.muted} secureTextEntry returnKeyType="done" editable={!authBusy} autoCorrect={false} />
+            <ActionButton title={mode === 'login' ? t('continue') : t('createAccount')} onPress={handleAuthSubmit} disabled={authBusy || !canSubmitRegister} />
+            {authBusy ? <ActivityIndicator style={styles.loader} color={THEME.teal} /> : null}
             <Text style={styles.demoText}>{t('demoAccounts')}: customer@fixcart.app / Password@123 and worker@fixcart.app / Password@123</Text>
           </View>
         </AnimatedSection>
@@ -698,12 +761,12 @@ function WorkerDashboard() {
     const worker = (profileQuery.data as { worker?: { bio?: string; basePrice?: number; hourlyRate?: number } } | undefined)?.worker;
     if (worker) { setBio(worker.bio ?? ''); setBasePrice(String(worker.basePrice ?? '')); setHourlyRate(String(worker.hourlyRate ?? '')); }
   }, [profileQuery.data]);
-  const updateProfileMutation = useMutation({ mutationFn: () => api.updateWorkerProfile(token, { bio, primaryCategoryCode: 'PLUMBING', experienceYears: 6, basePrice: Number(basePrice), hourlyRate: Number(hourlyRate), latitude: 19.076, longitude: 72.8777, serviceRadiusKm: 20, available: true, availability: [{ dayOfWeek: 'MONDAY', startTime: '09:00:00', endTime: '18:00:00' }, { dayOfWeek: 'WEDNESDAY', startTime: '09:00:00', endTime: '18:00:00' }, { dayOfWeek: 'SATURDAY', startTime: '09:00:00', endTime: '18:00:00' }] }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['worker-profile'] }); Alert.alert(t('profileUpdated')); } });
+  const updateProfileMutation = useMutation({ mutationFn: () => api.updateWorkerProfile(token, { bio, primaryCategoryCode: workerCategoryCode, experienceYears: 6, basePrice: Number(basePrice), hourlyRate: Number(hourlyRate), latitude: 19.076, longitude: 72.8777, serviceRadiusKm: 20, available: true, availability: [{ dayOfWeek: 'MONDAY', startTime: '09:00:00', endTime: '18:00:00' }, { dayOfWeek: 'WEDNESDAY', startTime: '09:00:00', endTime: '18:00:00' }, { dayOfWeek: 'SATURDAY', startTime: '09:00:00', endTime: '18:00:00' }] }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['worker-profile'] }); Alert.alert(t('profileUpdated')); } });
   const acceptMutation = useMutation({ mutationFn: (bookingId: string) => api.acceptBooking(token, bookingId), onSuccess: async (booking) => { setSelectedBookingId(booking.bookingId); await queryClient.invalidateQueries({ queryKey: ['open-bookings'] }); await queryClient.invalidateQueries({ queryKey: ['worker-bookings'] }); } });
   const statusMutation = useMutation({ mutationFn: ({ bookingId, status }: { bookingId: string; status: BookingStatus }) => api.updateBookingStatus(token, bookingId, status), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['worker-bookings'] }); } });
   const activeBookings = bookingsQuery.data ?? [];
   const completedBookings = activeBookings.filter((booking) => booking.status === 'COMPLETED');
-  const workerCategoryCode = (profileQuery.data as { worker?: { primaryCategoryCode?: string } } | undefined)?.worker?.primaryCategoryCode ?? 'PLUMBING';
+  const workerCategoryCode = (profileQuery.data as { worker?: { category?: string } } | undefined)?.worker?.category?.toUpperCase?.() ?? 'PLUMBING';
   const netEarned = completedBookings.reduce((sum, booking) => sum + Number(booking.workerPayout ?? Math.max(0, booking.budget - (booking.platformFee ?? 0))), 0);
   const platformGenerated = completedBookings.reduce((sum, booking) => sum + Number(booking.platformFee ?? 0), 0);
   const selectedBooking = activeBookings.find((booking) => booking.bookingId === selectedBookingId) ?? activeBookings[0] ?? null;
@@ -872,6 +935,10 @@ const styles = StyleSheet.create({
   routeMap: { width: '100%', height: 210 },
   errorText: { color: THEME.danger },
 });
+
+
+
+
 
 
 
